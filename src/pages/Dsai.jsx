@@ -3,12 +3,49 @@ import React, { useRef, useState } from 'react'
 export default function Dsai(){
   const uploadRef = useRef(null)
   const [parsedData, setParsedData] = useState(null)
+  const [projectSummaries, setProjectSummaries] = useState([])
   // loading modal state
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [loadingProgress, setLoadingProgress] = useState(null) // 0-100 or null
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [lastUpload, setLastUpload] = useState(null)
   const onUploadClick = () => uploadRef.current?.click()
+
+  // compute summaries from parsed rows
+  const computeProjectSummaries = (rows = []) => {
+    const projects = {}
+    for (const r of rows) {
+      const pid = (r.project_id || r.project_name || 'unknown').toString()
+      const pname = r.project_name || pid
+      const hours = Number(r.hours || r.time || 0) || 0
+      const dateStr = r.date || r.transaction_date || r['Transaction Date'] || null
+      const date = dateStr ? (isNaN(Date.parse(dateStr)) ? null : new Date(dateStr)) : null
+
+      if (!projects[pid]) projects[pid] = { project_id: pid, project_name: pname, total_hours: 0, last_tx: null, people: {} }
+      projects[pid].total_hours += hours
+      if (date && (!projects[pid].last_tx || date > projects[pid].last_tx)) projects[pid].last_tx = date
+
+      const person = r.person_name || r.Name || 'unknown'
+      if (!projects[pid].people[person]) projects[pid].people[person] = { hours: 0 }
+      projects[pid].people[person].hours += hours
+    }
+
+    return Object.values(projects).map(p => ({
+      ...p,
+      last_tx: p.last_tx ? p.last_tx.toISOString().slice(0,10) : null,
+      people: Object.entries(p.people).map(([person, info]) => ({ person, ...info }))
+    }))
+  }
+
+  // update summaries when parsedData changes
+  React.useEffect(() => {
+    if (!parsedData || !Array.isArray(parsedData)) {
+      setProjectSummaries([])
+      return
+    }
+    setProjectSummaries(computeProjectSummaries(parsedData))
+  }, [parsedData])
 
   const parseCSV = (txt) => {
     const lines = txt.split(/\r?\n/).filter(l => l.trim())
@@ -20,6 +57,44 @@ export default function Dsai(){
       const obj = {}
       headers.forEach((h, i) => { obj[h] = (parts[i] || '').trim() })
       return obj
+    })
+  }
+
+  // Normalize parsed rows to canonical fields used by the DSAI UI
+  const normalizeParsedRows = (rows) => {
+    if (!Array.isArray(rows)) return rows
+    return rows.map(row => {
+      // copy to avoid mutating original
+      const r = Object.assign({}, row)
+
+      // helper to read case-insensitive keys and variants
+      const get = (...keys) => {
+        for (const k of keys) {
+          if (k in r && r[k] != null && String(r[k]).trim() !== '') return r[k]
+          const lower = Object.keys(r).find(x => x.toLowerCase() === k.toLowerCase())
+          if (lower && r[lower] != null && String(r[lower]).trim() !== '') return r[lower]
+        }
+        return undefined
+      }
+
+      // Map engagement -> project_name (per your request)
+      const projectVal = get('project_name', 'project', 'engagement', 'engagement_name', 'engagements')
+      if (projectVal && !r.project_name) r.project_name = projectVal
+
+      // common normalizations
+      const personVal = get('person_name', 'person', 'resource', 'owner')
+      if (personVal && !r.person_name) r.person_name = personVal
+
+      const dateVal = get('date', 'day')
+      if (dateVal && !r.date) r.date = dateVal
+
+      const hoursVal = get('hours', 'time')
+      if (hoursVal && !r.hours) r.hours = hoursVal
+
+      const costVal = get('cost', 'amount')
+      if (costVal && !r.cost) r.cost = costVal
+
+      return r
     })
   }
 
@@ -48,124 +123,126 @@ export default function Dsai(){
     const f = e.target.files?.[0]
     if (!f) return
 
-    // send to local server
-    try {
-      // show modal
-      setLoading(true)
-      setLoadingMessage('Uploading report...')
-      setLoadingProgress(null)
+    setLoading(true)
+    setLoadingMessage('Uploading report...')
+    setLoadingProgress(null)
 
+    try {
       const fd = new FormData()
       fd.append('file', f)
-      const upl = await fetch('http://localhost:3001/api/upload', {
-        method: 'POST',
-        body: fd
-      })
+      const uplResp = await fetch('http://localhost:3001/api/upload', { method: 'POST', body: fd })
+      const respText = await uplResp.clone().text()
+      let parsedResp = {}
+      try { parsedResp = JSON.parse(respText) } catch (err) { parsedResp = { ok: uplResp.ok, raw: respText } }
+      setLastUpload({ ok: parsedResp.ok, jobId: parsedResp.jobId || parsedResp.savedCopy || '', savedOriginal: parsedResp.savedOriginal, raw: respText })
 
-      // as requested: immediately show success once the upload request completes
+      // show immediate upload success per requirement
       setLoadingMessage('Upload successful')
       setLoadingProgress(100)
       setUploadSuccess(true)
-      // do not auto-close; let the user dismiss the message manually
- 
-      // continue processing in background so the UI always shows success
+
+      // optimistic mapping: for XLSB, infer project from filename and show in dashboard immediately
+      const ext = (f.name.split('.').pop() || '').toLowerCase()
+      if (ext === 'xlsb') {
+        try {
+          const inferred = inferProjectFromFilename(parsedResp.savedOriginal || parsedResp.jobId || f.name)
+          if (inferred) {
+            const optimistic = [{ project_name: inferred }]
+            setParsedData(optimistic)
+            setProjectSummaries(computeProjectSummaries(optimistic))
+          }
+        } catch (e) { /* ignore optimistic failure */ }
+      }
+
+      // background processing: try immediate fetch of outputs, otherwise poll
       ;(async () => {
         try {
-          let result = null
-          try { result = await upl.json() } catch (e) { result = { ok: true } }
-
-          const jobId = result?.jobId || result?.savedCopy || ''
-          const ext = (f.name.split('.').pop() || '').toLowerCase()
           let text = null
+          const jobId = parsedResp.jobId || parsedResp.savedCopy || ''
+          const base = (jobId || '').replace(/\.uploaded$/i, '')
+          const candidates = [`${base}.ndjson`, `${jobId}.ndjson`, `${base}.json`, `${jobId}.json`]
 
-          if (ext === 'xlsb') {
-            // XLSB must be processed server-side. Poll for NDJSON/JSON output.
-            // If we already showed 'Upload successful', keep that message and do not overwrite it
-            if (!uploadSuccess) {
-              setLoading(true)
-              setLoadingMessage('Processing report on server...')
-            }
-            setLoadingProgress(null)
+          // immediate attempt
+          for (const name of candidates) {
+            try {
+              const r = await fetch(`http://localhost:3001/data/${encodeURIComponent(name)}`)
+              if (r.ok) { text = await r.text(); break }
+            } catch (e) { /* ignore */ }
+          }
+
+          // if not found, poll
+          if (!text && ext === 'xlsb') {
             try {
               text = await pollForProcessed(jobId, 15, 2000, (attempt, attempts) => {
                 const pct = Math.round((attempt / attempts) * 100)
-                // only update visible progress if we haven't locked the success message
                 if (!uploadSuccess) {
                   setLoadingProgress(pct <= 80 ? pct : 80)
                   setLoadingMessage(`Processing report... (${attempt}/${attempts})`)
                 }
               })
-              // file arrived — finalize parsing; only change message if not locked to 'Upload successful'
-              if (!uploadSuccess) {
-                setLoadingMessage('Finalizing parsed data...')
-                setLoadingProgress(90)
-              } else {
-                setLoadingProgress(null)
-              }
             } catch (err) {
-              console.warn('Background processing not available yet', err)
-              if (!uploadSuccess) {
-                setLoadingMessage('Processing done')
-                setLoadingProgress(null)
-                setTimeout(() => setLoading(false), 1200)
-              } else {
-                // preserve upload success message
-              }
-              return
+              console.warn('Processed file not available yet', err)
             }
-          } else {
-            // fetch the saved file from the local server and parse immediately
-            setLoading(true)
-            setLoadingMessage('Fetching uploaded file...')
-            const resp = await fetch(`http://localhost:3001/data/${encodeURIComponent(jobId)}`)
-            if (resp.ok) {
-              text = await resp.text()
-              setLoadingProgress(80)
-              setLoadingMessage('Parsing file...')
-            } else {
-              // can't fetch, stop background work
-              setLoadingMessage('Uploaded (file fetch failed)')
+          }
+
+          // for non-xlsb types, try to fetch the saved jobId directly
+          if (!text && ext !== 'xlsb' && jobId) {
+            try {
+              const r = await fetch(`http://localhost:3001/data/${encodeURIComponent(jobId)}`)
+              if (r.ok) text = await r.text()
+            } catch (e) { /* ignore */ }
+          }
+
+          if (!text) {
+            // nothing to parse yet
+            if (!uploadSuccess) {
+              setLoadingMessage('Processing done')
               setLoadingProgress(null)
               setTimeout(() => setLoading(false), 1200)
-              return
+            }
+            return
+          }
+
+          // parse based on extension of returned content or original file
+          let data = null
+          // if the returned text looks like NDJSON (lines of JSON), prefer that
+          const isNdjson = text.split(/\r?\n/).filter(Boolean).every(l => {
+            try { JSON.parse(l); return true } catch (e) { return false }
+          })
+          if (isNdjson) {
+            data = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l))
+          } else {
+            // attempt JSON parse, then CSV
+            try { data = JSON.parse(text) } catch (e) {
+              try { data = parseCSV(text) } catch (e2) { data = null }
             }
           }
 
-          let data = null
-          if (ext === 'json') {
-            data = JSON.parse(text)
-          } else if (ext === 'ndjson' || ext === 'xlsb') {
-            // NDJSON or processed XLSB result (NDJSON/JSON lines)
-            data = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l))
-          } else if (ext === 'csv') {
-            data = parseCSV(text)
-          } else {
-            // unknown type - keep raw text
-            data = text
+          if (Array.isArray(data)) {
+            const normalized = normalizeParsedRows(data)
+            setParsedData(normalized)
+            setProjectSummaries(computeProjectSummaries(normalized))
+            console.log('Parsed data (background):', normalized)
           }
 
-          setParsedData(data)
-          console.log('Parsed data (background):', data)
           if (!uploadSuccess) {
             setLoadingMessage('Done')
             setLoadingProgress(100)
           }
-          // leave modal visible so user can see the success; user can close manually
         } catch (err) {
-          console.error('Background upload/parse error', err)
-          setLoadingMessage('Background processing failed')
-          setLoadingProgress(null)
-          setTimeout(() => setLoading(false), 1500)
+          console.error('Background processing error', err)
+          if (!uploadSuccess) {
+            setLoadingMessage('Background processing failed')
+            setLoadingProgress(null)
+            setTimeout(() => setLoading(false), 1500)
+          }
         }
       })()
 
     } catch (err) {
-      console.error('Upload/parse error', err)
+      console.error('Upload error', err)
       setParsedData(null)
-      const msg = err.message && err.message.toLowerCase().includes('processed file not available')
-        ? 'Processing timed out. Check server logs.'
-        : ('Error: ' + (err.message || 'upload failed'))
-      setLoadingMessage(msg)
+      setLoadingMessage('Upload failed')
       setLoadingProgress(null)
       setTimeout(() => setLoading(false), 2500)
     }
@@ -185,6 +262,14 @@ export default function Dsai(){
   const pill = (text, bg='#fff', color='#111') => (
     <span style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',borderRadius:999,background:bg,color, fontWeight:700}}>{text}</span>
   )
+
+  const inferProjectFromFilename = (name) => {
+    if (!name) return ''
+    // strip common extensions and suffixes
+    const n = name.replace(/\.uploaded$/i, '').replace(/\.(xlsb|xlsx|csv|json|ndjson)$/i, '')
+    // replace separators with spaces and trim
+    return n.replace(/[_\-\.]+/g, ' ').trim()
+  }
 
   return (
     <main style={{padding:24}}>
@@ -246,7 +331,7 @@ export default function Dsai(){
               <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div style={{display:'flex',flexDirection:'column',gap:4}}>
                   <div style={{fontSize:10,color:'#6a7280',fontWeight:700}}>Total Projects</div>
-                  <div style={{fontSize:18,fontWeight:900,color:'#2a2f36'}}>42</div>
+                  <div style={{fontSize:18,fontWeight:900,color:'#2a2f36'}}>{projectSummaries.length}</div>
                 </div>
                 <div style={{width:40,height:40,display:'grid',placeItems:'center',borderRadius:10,background:'#eef4ff',border:'1px solid rgba(0,0,0,.06)'}}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="#2563eb"><path d="M4 4h7v7H4V4zm9 0h7v5h-7V4zM4 13h7v7H4v-7zm9 3h7v4h-7v-4z"/></svg>
@@ -321,8 +406,8 @@ export default function Dsai(){
               </div>
 
               <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e3e6ef',borderRadius:999}}>Last 30 Days</div>
-                <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e3e6ef',borderRadius:999}}> <span style={{width:8,height:8,borderRadius:999,background:'#22c55e'}}></span> Last Sync: Apr 7, 9:30 AM</div>
+                <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999}}>Last 30 Days</div>
+                <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999}}> <span style={{width:8,height:8,borderRadius:999,background:'#22c55e'}}></span> Last Sync: Apr 7, 9:30 AM</div>
               </div>
             </div>
 
@@ -342,39 +427,59 @@ export default function Dsai(){
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td style={{padding:'12px 10px'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:10}}>
-                          <div style={{width:36,height:36,borderRadius:999,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',border:'1px solid rgba(0,0,0,.06)',color:'#1f2937',fontWeight:900}}>G</div>
-                          <div>
-                            <div style={{fontWeight:900}}>Globe ITSM</div>
-                            <div style={{fontSize:12,color:'#6a7280',marginTop:4}}>Service Management</div>
+                    {projectSummaries.length === 0 && (
+                      <tr><td colSpan={7} style={{padding:'24px 10px',color:'#6a7280'}}>No uploaded project data yet.</td></tr>
+                    )}
+                    {projectSummaries.map((p) => (
+                      <tr key={p.project_id}>
+                        <td style={{padding:'12px 10px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:10}}>
+                            <div style={{width:36,height:36,borderRadius:999,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',border:'1px solid rgba(0,0,0,.06)',color:'#1f2937',fontWeight:900}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
+                            <div>
+                              <div style={{fontWeight:900}}>{p.project_name}</div>
+                              <div style={{fontSize:12,color:'#6a7280',marginTop:4}}>{p.project_id}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{padding:'12px 10px',verticalAlign:'top'}}>Mark / Carlo</td>
-                      <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff7ed',color:'#c2410c',fontWeight:900}}>Amber</span></td>
-                      <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff1f1',color:'#b91c1c',fontWeight:900}}>High</span></td>
-                      <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
-                      <td style={{padding:'12px 10px',verticalAlign:'top',color:'#6a7280'}}>2h ago</td>
-                      <td style={{padding:'12px 10px',verticalAlign:'top',color:'#2a2f36'}}>
-                        <ul style={{margin:0,paddingLeft:16}}>
-                          <li>Delayed staffing near phase start</li>
-                          <li>Recent change variance detected</li>
-                        </ul>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                        </td>
+                        <td style={{padding:'12px 10px',verticalAlign:'top'}}>{(p.people && p.people.map(x=>x.person).slice(0,2).join(' / ')) || ''}</td>
+                        <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff7ed',color:'#c2410c',fontWeight:900}}>—</span></td>
+                        <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff1f1',color:'#b91c1c',fontWeight:900}}>—</span></td>
+                        <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
+                        <td style={{padding:'12px 10px',verticalAlign:'top',color:'#6a7280'}}>{p.last_tx || ''}</td>
+                        <td style={{padding:'12px 10px',verticalAlign:'top',color:'#2a2f36'}}>
+                          <ul style={{margin:0,paddingLeft:16}}>{/* placeholder risks */}
+                            <li>{p.total_hours} hrs</li>
+                          </ul>
+                        </td>
+                      </tr>
+                    ))}
+                   </tbody>
+                 </table>
+               </div>
+             </div>
 
             <div style={{height:220,marginTop:12,background:'linear-gradient(180deg, rgba(11,18,40,.06), rgba(11,18,40,.00))'}} aria-hidden="true" />
 
           </div>
 
+          {/* Debug panel: show last upload and parsed data so we can debug missing rows */}
+          {lastUpload && (
+            <div style={{padding:12,background:'#fff4',marginTop:12,borderRadius:8,border:'1px dashed #e3e6ef'}}>
+              <div style={{fontSize:12,color:'#374151',fontWeight:700}}>Last upload</div>
+              <div style={{fontSize:12,color:'#6b7280',marginTop:6}}>jobId: {lastUpload.jobId || '(none)'}</div>
+              <div style={{fontSize:12,color:'#6b7280'}}>savedOriginal: {lastUpload.savedOriginal || '(unknown)'}</div>
+              <div style={{fontSize:12,color:'#6b7280',marginTop:6}}>raw response: <pre style={{whiteSpace:'pre-wrap',fontSize:11,color:'#374151'}}>{lastUpload.raw}</pre></div>
+            </div>
+          )}
+
+          {parsedData && (
+            <div style={{padding:12,background:'#fff',marginTop:12,borderRadius:8,border:'1px solid #e3e6ef'}}>
+              <div style={{fontSize:12,fontWeight:700,color:'#374151'}}>Parsed data (preview)</div>
+              <pre style={{maxHeight:240,overflow:'auto',fontSize:12,whiteSpace:'pre-wrap',marginTop:8}}>{JSON.stringify(parsedData.slice(0,20), null, 2)}</pre>
+            </div>
+          )}
         </div>
       </div>
     </main>
-  )
-}
+    )
+  }

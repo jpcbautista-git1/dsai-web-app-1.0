@@ -20,11 +20,17 @@ CANDIDATES = {
     'projectid': 'project_id',
     'project': 'project_name',
     'projectname': 'project_name',
+    'engagement': 'project_name',
+    'engagementname': 'project_name',
+    'engagements': 'project_name',
     'person': 'person_name',
     'personname': 'person_name',
     'resource': 'person_name',
+    'name': 'person_name',
     'date': 'date',
     'day': 'date',
+    'transactiondate': 'date',
+    'transaction_date': 'date',
     'hours': 'hours',
     'time': 'hours',
     'cost': 'cost',
@@ -34,7 +40,8 @@ CANDIDATES = {
     'plannedstart': 'planned_start',
     'plannedend': 'planned_end',
     'actualstart': 'actual_start',
-    'actualend': 'actual_end'
+    'actualend': 'actual_end',
+    'gpn': 'project_id'
 }
 
 def map_columns(cols):
