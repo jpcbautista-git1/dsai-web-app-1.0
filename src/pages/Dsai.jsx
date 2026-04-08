@@ -1,8 +1,22 @@
-import React from 'react'
+import React, { useRef } from 'react'
 
 export default function Dsai(){
+  const uploadRef = useRef(null)
+  const onUploadClick = () => uploadRef.current?.click()
+  const handleFileUpload = (e) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      // For now just log the content; later parse and POST to backend or update UI state
+      try { console.log('Uploaded report:', f.name); console.log(reader.result) } catch(e){}
+    }
+    reader.readAsText(f)
+  }
+
   const panel = {
-    width: 'min(1040px,100%)',
+    width: '100%',
+    maxWidth: '100%',
     minHeight: 520,
     borderRadius: 16,
     overflow: 'hidden',
@@ -17,8 +31,8 @@ export default function Dsai(){
 
   return (
     <main style={{padding:24}}>
-      <div style={{display:'flex',justifyContent:'center',paddingTop:18,position:'relative'}}>
-        <div style={panel}>
+      <div style={{display:'block',paddingTop:18,position:'relative'}}>
+        <div style={{...panel,boxSizing:'border-box'}}>
 
           <div style={{padding:18,borderBottom:'1px solid #e3e6ef',display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
             <div>
@@ -27,13 +41,28 @@ export default function Dsai(){
             </div>
 
             <div style={{display:'flex',gap:10,alignItems:'center'}}>
+              {/* hidden file input used by the Upload button */}
+              <input id="reportUpload" type="file" accept=".csv,.json,.ndjson" ref={uploadRef} onChange={handleFileUpload} style={{display:'none'}} />
+
+              {/* Upload report button (left of Sync All) - updated label and icon */}
+              <button id="btnUploadReport" onClick={onUploadClick} style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',fontSize:12,fontWeight:700,background:'#fff',borderRadius:10,border:'1px solid #e3e6ef',cursor:'pointer'}}> 
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v9" />
+                  <path d="M8 7l4-4 4 4" />
+                  <rect x="3" y="13" width="18" height="8" rx="2" />
+                </svg>
+                Upload report
+              </button>
+
               <button style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',fontSize:12,fontWeight:700,background:'#fff',borderRadius:10,border:'1px solid #e3e6ef',cursor:'pointer'}}> 
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 4a8 8 0 0 0-7.75 6H2l3 3 3-3H6.32A6 6 0 1 1 12 18c-1.66 0-3.18-.67-4.27-1.76l-1.42 1.42A7.96 7.96 0 0 0 12 20a8 8 0 0 0 0-16zm1 4h-2v6l5 3 1-1.73-4-2.27V8z"/></svg>
                 Sync All
               </button>
 
               <button style={{width:34,height:34,display:'grid',placeItems:'center',background:'#fff',border:'1px solid #e3e6ef',borderRadius:10,cursor:'pointer'}} aria-label="Settings">
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d=""/></svg>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="currentColor">
+                  <path d="M19.14 12.94a7.07 7.07 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.02 7.02 0 00-1.61-.93l-.36-2.54A.5.5 0 0013.7 2h-3.4a.5.5 0 00-.5.42l-.36 2.54a7.02 7.02 0 00-1.61.93l-2.39-.96a.5.5 0 00-.6.22L2.71 8.84a.5.5 0 00.12.64l2.03 1.58a7.07 7.07 0 000 1.88L2.83 14.5a.5.5 0 00-.12.64l1.92 3.32c.13.23.39.34.6.22l2.39-.96c.5.38 1.04.7 1.61.93l.36 2.54c.05.27.27.47.5.47h3.4c.27 0 .45-.2.5-.47l.36-2.54c.57-.23 1.11-.55 1.61-.93l2.39.96c.22.12.48.01.6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.56zM12 15.5A3.5 3.5 0 1115.5 12 3.5 3.5 0 0112 15.5z" />
+                </svg>
               </button>
             </div>
           </div>
@@ -102,7 +131,7 @@ export default function Dsai(){
               </div>
 
               <div style={{display:'flex',alignItems:'center',gap:12,flex:1,justifyContent:'flex-end'}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,background:'#fff',border:'1px solid #e3e6ef',borderRadius:10,padding:'7px 10px',minWidth:260}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,background:'#fff',border:'1px solid #e6e6ef',borderRadius:10,padding:'7px 10px',minWidth:260}}>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="#6a7280"><path d="M10 2a8 8 0 1 0 4.9 14.32l4.39 4.39 1.41-1.41-4.39-4.39A8 8 0 0 0 10 2zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12z"/></svg>
                   <input type="search" placeholder="Search projects..." style={{border:0,outline:0,background:'transparent',width:'100%'}}/>
                 </div>
