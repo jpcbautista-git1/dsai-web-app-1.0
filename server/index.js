@@ -3,6 +3,7 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const cors = require('cors')
+const { spawn } = require('child_process')
 
 const UPLOADS = path.join(__dirname, 'uploads')
 const DATA = path.join(__dirname, 'data')
@@ -29,19 +30,34 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
   console.log('[upload] multer saved file:', req.file)
   const src = req.file.path
-  const dest = path.join(DATA, req.file.filename + '.uploaded')
+
   try {
-    // move/copy to data to signal available file for client polling
+    // use the original filename (keep extension) and make it safe/unique for data folder
+    const originalName = req.file.originalname || req.file.filename || 'upload'
+    const safeOriginal = originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const baseName = `${Date.now()}-${safeOriginal}`
+    const dest = path.join(DATA, baseName + '.uploaded')
+
+    // copy to data so worker can read and we can serve it
     fs.copyFileSync(src, dest)
     console.log(`[upload] copied to data: ${dest}`)
+
+    // spawn python worker to process the uploaded file
+    try {
+      const outBase = path.join(DATA, baseName)
+      const worker = spawn('python', [path.join(__dirname, 'workers', 'process_report.py'), dest, outBase], { detached: true, stdio: 'ignore' })
+      worker.unref()
+      console.log('[upload] spawned worker for', dest)
+    } catch (err) {
+      console.error('[upload] failed to spawn worker', err)
+    }
+
+    const jobId = path.basename(dest)
+    return res.json({ ok: true, jobId, savedOriginal: originalName, savedCopy: jobId })
   } catch (err) {
     console.error('[upload] failed to copy to data', err)
     return res.status(500).json({ ok: false, error: 'failed to save uploaded file', detail: String(err) })
   }
-
-  // return job id and file paths for debugging
-  const jobId = path.basename(dest)
-  res.json({ ok: true, jobId, savedOriginal: path.basename(src), savedCopy: jobId })
 })
 
 app.get('/api/uploads', (req, res) => {

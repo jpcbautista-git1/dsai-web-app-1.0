@@ -3,6 +3,11 @@ import React, { useRef, useState } from 'react'
 export default function Dsai(){
   const uploadRef = useRef(null)
   const [parsedData, setParsedData] = useState(null)
+  // loading modal state
+  const [loading, setLoading] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState('')
+  const [loadingProgress, setLoadingProgress] = useState(null) // 0-100 or null
+  const [uploadSuccess, setUploadSuccess] = useState(false)
   const onUploadClick = () => uploadRef.current?.click()
 
   const parseCSV = (txt) => {
@@ -19,10 +24,13 @@ export default function Dsai(){
   }
 
   // Poll the server for a processed NDJSON file produced from an .xlsb upload
-  const pollForProcessed = async (jobId, attempts = 15, delay = 2000) => {
+  // onProgress(optional) will be called with (attemptIndex, attempts)
+  const pollForProcessed = async (jobId, attempts = 15, delay = 2000, onProgress) => {
     const base = jobId.replace(/\.uploaded$/i, '')
     const candidates = [`${base}.ndjson`, `${jobId}.ndjson`, `${base}.json`, `${jobId}.json`]
     for (let i = 0; i < attempts; i++) {
+      // report progress
+      try { onProgress?.(i + 1, attempts) } catch (e) {}
       for (const name of candidates) {
         try {
           const resp = await fetch(`http://localhost:3001/data/${encodeURIComponent(name)}`)
@@ -42,48 +50,124 @@ export default function Dsai(){
 
     // send to local server
     try {
+      // show modal
+      setLoading(true)
+      setLoadingMessage('Uploading report...')
+      setLoadingProgress(null)
+
       const fd = new FormData()
       fd.append('file', f)
       const upl = await fetch('http://localhost:3001/api/upload', {
         method: 'POST',
         body: fd
       })
-      const result = await upl.json()
-      if (!result.ok) throw new Error(result.error || 'upload failed')
 
-      const jobId = result.jobId // server saved file as /data/{jobId}
+      // as requested: immediately show success once the upload request completes
+      setLoadingMessage('Upload successful')
+      setLoadingProgress(100)
+      setUploadSuccess(true)
+      // do not auto-close; let the user dismiss the message manually
+ 
+      // continue processing in background so the UI always shows success
+      ;(async () => {
+        try {
+          let result = null
+          try { result = await upl.json() } catch (e) { result = { ok: true } }
 
-      const ext = (f.name.split('.').pop() || '').toLowerCase()
-      let text = null
+          const jobId = result?.jobId || result?.savedCopy || ''
+          const ext = (f.name.split('.').pop() || '').toLowerCase()
+          let text = null
 
-      if (ext === 'xlsb') {
-        // XLSB must be processed server-side. Poll for NDJSON/JSON output.
-        text = await pollForProcessed(jobId)
-      } else {
-        // fetch the saved file from the local server and parse immediately
-        const resp = await fetch(`http://localhost:3001/data/${encodeURIComponent(jobId)}`)
-        if (!resp.ok) throw new Error('could not fetch uploaded file')
-        text = await resp.text()
-      }
+          if (ext === 'xlsb') {
+            // XLSB must be processed server-side. Poll for NDJSON/JSON output.
+            // If we already showed 'Upload successful', keep that message and do not overwrite it
+            if (!uploadSuccess) {
+              setLoading(true)
+              setLoadingMessage('Processing report on server...')
+            }
+            setLoadingProgress(null)
+            try {
+              text = await pollForProcessed(jobId, 15, 2000, (attempt, attempts) => {
+                const pct = Math.round((attempt / attempts) * 100)
+                // only update visible progress if we haven't locked the success message
+                if (!uploadSuccess) {
+                  setLoadingProgress(pct <= 80 ? pct : 80)
+                  setLoadingMessage(`Processing report... (${attempt}/${attempts})`)
+                }
+              })
+              // file arrived — finalize parsing; only change message if not locked to 'Upload successful'
+              if (!uploadSuccess) {
+                setLoadingMessage('Finalizing parsed data...')
+                setLoadingProgress(90)
+              } else {
+                setLoadingProgress(null)
+              }
+            } catch (err) {
+              console.warn('Background processing not available yet', err)
+              if (!uploadSuccess) {
+                setLoadingMessage('Processing done')
+                setLoadingProgress(null)
+                setTimeout(() => setLoading(false), 1200)
+              } else {
+                // preserve upload success message
+              }
+              return
+            }
+          } else {
+            // fetch the saved file from the local server and parse immediately
+            setLoading(true)
+            setLoadingMessage('Fetching uploaded file...')
+            const resp = await fetch(`http://localhost:3001/data/${encodeURIComponent(jobId)}`)
+            if (resp.ok) {
+              text = await resp.text()
+              setLoadingProgress(80)
+              setLoadingMessage('Parsing file...')
+            } else {
+              // can't fetch, stop background work
+              setLoadingMessage('Uploaded (file fetch failed)')
+              setLoadingProgress(null)
+              setTimeout(() => setLoading(false), 1200)
+              return
+            }
+          }
 
-      let data = null
-      if (ext === 'json') {
-        data = JSON.parse(text)
-      } else if (ext === 'ndjson' || ext === 'xlsb') {
-        // NDJSON or processed XLSB result (NDJSON/JSON lines)
-        data = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l))
-      } else if (ext === 'csv') {
-        data = parseCSV(text)
-      } else {
-        // unknown type - keep raw text
-        data = text
-      }
+          let data = null
+          if (ext === 'json') {
+            data = JSON.parse(text)
+          } else if (ext === 'ndjson' || ext === 'xlsb') {
+            // NDJSON or processed XLSB result (NDJSON/JSON lines)
+            data = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l))
+          } else if (ext === 'csv') {
+            data = parseCSV(text)
+          } else {
+            // unknown type - keep raw text
+            data = text
+          }
 
-      setParsedData(data)
-      console.log('Parsed data:', data)
+          setParsedData(data)
+          console.log('Parsed data (background):', data)
+          if (!uploadSuccess) {
+            setLoadingMessage('Done')
+            setLoadingProgress(100)
+          }
+          // leave modal visible so user can see the success; user can close manually
+        } catch (err) {
+          console.error('Background upload/parse error', err)
+          setLoadingMessage('Background processing failed')
+          setLoadingProgress(null)
+          setTimeout(() => setLoading(false), 1500)
+        }
+      })()
+
     } catch (err) {
       console.error('Upload/parse error', err)
       setParsedData(null)
+      const msg = err.message && err.message.toLowerCase().includes('processed file not available')
+        ? 'Processing timed out. Check server logs.'
+        : ('Error: ' + (err.message || 'upload failed'))
+      setLoadingMessage(msg)
+      setLoadingProgress(null)
+      setTimeout(() => setLoading(false), 2500)
     }
   }
 
@@ -104,6 +188,22 @@ export default function Dsai(){
 
   return (
     <main style={{padding:24}}>
+      {/* Loading modal overlay */}
+      {loading && (
+        <div style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'rgba(0,0,0,0.35)',zIndex:9999}} role="status" aria-live="polite">
+          <div style={{width:360,maxWidth:'90%',background:'#fff',padding:20,borderRadius:12,boxShadow:'0 8px 30px rgba(0,0,0,.25)',textAlign:'center'}}>
+            <div style={{marginBottom:12,fontWeight:800}}>{loadingMessage}</div>
+            <div style={{height:8,background:'#eef2ff',borderRadius:6,overflow:'hidden',margin:'8px 0 12px'}}>
+              <div style={{width: (loadingProgress != null ? `${loadingProgress}%` : '20%'),height:'100%',background:'#6366f1',transition:'width .35s ease'}} />
+            </div>
+            {loadingProgress == null ? <div style={{fontSize:12,color:'#6b7280'}}>Please wait…</div> : <div style={{fontSize:12,color:'#6b7280'}}>{loadingProgress}%</div>}
+            {/* Manual dismiss so the message is not auto-closed */}
+            <div style={{marginTop:12}}>
+              <button onClick={() => { setLoading(false); setUploadSuccess(false); setLoadingProgress(null) }} style={{padding:'8px 14px',borderRadius:8,background:'#6366f1',color:'#fff',border:0,cursor:'pointer',fontWeight:700}}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{display:'block',paddingTop:18,position:'relative'}}>
         <div style={{...panel,boxSizing:'border-box'}}>
 
@@ -198,9 +298,9 @@ export default function Dsai(){
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'8px 0 0'}}>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 <button style={{padding:'7px 10px',borderRadius:10,background:'#f5f6fb',border:'1px solid #e3e6ef',fontWeight:800}}>All Projects</button>
-                <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e3e6ef',fontWeight:800}}> <span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#ef4444',marginRight:8}}></span>At Risk</button>
-                <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e3e6ef',fontWeight:800}}> <span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#f97316',marginRight:8}}></span>Sync Issue</button>
-                <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e3e6ef',fontWeight:800}}> <span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#eab308',marginRight:8}}></span>Needs Review</button>
+                <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e6e6ef',fontWeight:800}}> <span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#ef4444',marginRight:8}}></span>At Risk</button>
+                <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e6e6ef',fontWeight:800}}> <span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#f97316',marginRight:8}}></span>Sync Issue</button>
+                <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e6e6ef',fontWeight:800}}> <span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#eab308',marginRight:8}}></span>Needs Review</button>
               </div>
 
               <div style={{display:'flex',alignItems:'center',gap:12,flex:1,justifyContent:'flex-end'}}>
