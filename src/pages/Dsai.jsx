@@ -1,17 +1,90 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 
 export default function Dsai(){
   const uploadRef = useRef(null)
+  const [parsedData, setParsedData] = useState(null)
   const onUploadClick = () => uploadRef.current?.click()
-  const handleFileUpload = (e) => {
+
+  const parseCSV = (txt) => {
+    const lines = txt.split(/\r?\n/).filter(l => l.trim())
+    if (!lines.length) return []
+    const headers = lines.shift().split(',').map(h => h.trim())
+    return lines.map(line => {
+      // naive split - good enough for simple CSVs in this POC
+      const parts = line.split(',')
+      const obj = {}
+      headers.forEach((h, i) => { obj[h] = (parts[i] || '').trim() })
+      return obj
+    })
+  }
+
+  // Poll the server for a processed NDJSON file produced from an .xlsb upload
+  const pollForProcessed = async (jobId, attempts = 15, delay = 2000) => {
+    const base = jobId.replace(/\.uploaded$/i, '')
+    const candidates = [`${base}.ndjson`, `${jobId}.ndjson`, `${base}.json`, `${jobId}.json`]
+    for (let i = 0; i < attempts; i++) {
+      for (const name of candidates) {
+        try {
+          const resp = await fetch(`http://localhost:3001/data/${encodeURIComponent(name)}`)
+          if (resp.ok) return await resp.text()
+        } catch (e) {
+          // ignore and try next
+        }
+      }
+      await new Promise(r => setTimeout(r, delay))
+    }
+    throw new Error('processed file not available')
+  }
+
+  const handleFileUpload = async (e) => {
     const f = e.target.files?.[0]
     if (!f) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      // For now just log the content; later parse and POST to backend or update UI state
-      try { console.log('Uploaded report:', f.name); console.log(reader.result) } catch(e){}
+
+    // send to local server
+    try {
+      const fd = new FormData()
+      fd.append('file', f)
+      const upl = await fetch('http://localhost:3001/api/upload', {
+        method: 'POST',
+        body: fd
+      })
+      const result = await upl.json()
+      if (!result.ok) throw new Error(result.error || 'upload failed')
+
+      const jobId = result.jobId // server saved file as /data/{jobId}
+
+      const ext = (f.name.split('.').pop() || '').toLowerCase()
+      let text = null
+
+      if (ext === 'xlsb') {
+        // XLSB must be processed server-side. Poll for NDJSON/JSON output.
+        text = await pollForProcessed(jobId)
+      } else {
+        // fetch the saved file from the local server and parse immediately
+        const resp = await fetch(`http://localhost:3001/data/${encodeURIComponent(jobId)}`)
+        if (!resp.ok) throw new Error('could not fetch uploaded file')
+        text = await resp.text()
+      }
+
+      let data = null
+      if (ext === 'json') {
+        data = JSON.parse(text)
+      } else if (ext === 'ndjson' || ext === 'xlsb') {
+        // NDJSON or processed XLSB result (NDJSON/JSON lines)
+        data = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l))
+      } else if (ext === 'csv') {
+        data = parseCSV(text)
+      } else {
+        // unknown type - keep raw text
+        data = text
+      }
+
+      setParsedData(data)
+      console.log('Parsed data:', data)
+    } catch (err) {
+      console.error('Upload/parse error', err)
+      setParsedData(null)
     }
-    reader.readAsText(f)
   }
 
   const panel = {
@@ -42,7 +115,7 @@ export default function Dsai(){
 
             <div style={{display:'flex',gap:10,alignItems:'center'}}>
               {/* hidden file input used by the Upload button */}
-              <input id="reportUpload" type="file" accept=".csv,.json,.ndjson" ref={uploadRef} onChange={handleFileUpload} style={{display:'none'}} />
+              <input id="reportUpload" type="file" accept=".csv,.json,.ndjson,.xlsb" ref={uploadRef} onChange={handleFileUpload} style={{display:'none'}} />
 
               {/* Upload report button (left of Sync All) - updated label and icon */}
               <button id="btnUploadReport" onClick={onUploadClick} style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',fontSize:12,fontWeight:700,background:'#fff',borderRadius:10,border:'1px solid #e3e6ef',cursor:'pointer'}}> 
