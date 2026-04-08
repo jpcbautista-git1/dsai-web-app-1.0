@@ -1,22 +1,21 @@
 import React from 'react'
 import homeIcon from '../assets/icons/home.png'
-import rocketIcon from '../assets/icons/rocket.png'
+import dsaiIcon from '../assets/icons/dsai_logo.png'
+import projectsIcon from '../assets/icons/rocket.png'
 import metricsIcon from '../assets/icons/metrics.png'
 import auditIcon from '../assets/icons/audit.png'
+import reviewIcon from '../assets/icons/report.png'
 import reputationIcon from '../assets/icons/reputation.png'
-import reviewIcon from '../assets/icons/review.png'
-import reportIcon from '../assets/icons/report.png'
-import dsaiIcon from '../assets/icons/dsai_logo.png'
 
 export default function Sidebar({onNavigate, active}){
   const items = [
     {key:'home',label:'Home', icon: homeIcon},
-    {key:'projects',label:'Projects', icon: rocketIcon},
+    {key:'projects',label:'Projects', icon: projectsIcon},
     {key:'metrics',label:'Metrics Dashboard', icon: metricsIcon},
-    {key:'audit',label:'Process Audit', icon: auditIcon},
+    {key:'process-audit',label:'Process Audit', icon: auditIcon},
     {key:'voc',label:'VOC Dashboard', icon: reputationIcon},
-    {key:'review',label:'Review Dashboard', icon: reviewIcon},
-    {key:'reports',label:'Review Reports', icon: reportIcon},
+    {key:'review-dashboard',label:'Review Dashboard', icon: reviewIcon},
+    {key:'review-reports',label:'Review Reports', icon: reviewIcon},
     {key:'dsai',label:'DSAI', icon: dsaiIcon}
   ]
 

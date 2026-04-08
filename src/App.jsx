@@ -5,6 +5,11 @@ import Home from './pages/Home'
 import Projects from './pages/Projects'
 import ProjectSample from './pages/ProjectSample'
 import Dsai from './pages/Dsai'
+import Metrics from './pages/Metrics'
+import ProcessAudit from './pages/ProcessAudit'
+import Voc from './pages/Voc'
+import ReviewDashboard from './pages/ReviewDashboard'
+import ReviewReports from './pages/ReviewReports'
 import './index.css'
 
 export default function App() {
@@ -15,6 +20,11 @@ export default function App() {
     if (route === 'projects') return <Projects onOpen={(r) => setRoute(r === 'sample' ? 'project' : r)} />
     if (route === 'project') return <ProjectSample />
     if (route === 'dsai') return <Dsai />
+    if (route === 'metrics') return <Metrics />
+    if (route === 'process-audit') return <ProcessAudit />
+    if (route === 'voc') return <Voc />
+    if (route === 'review-dashboard') return <ReviewDashboard />
+    if (route === 'review-reports') return <ReviewReports />
     return <Home />
   }
 
