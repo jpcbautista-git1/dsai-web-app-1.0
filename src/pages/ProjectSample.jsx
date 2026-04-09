@@ -36,11 +36,18 @@ export default function ProjectSample(){
   // Validation state for modal
   const [phaseErrors, setPhaseErrors] = useState({})
   const [resourceErrors, setResourceErrors] = useState({})
+  const [dsaiErrors, setDsaiErrors] = useState({})
 
   function validateModal(){
+    const dErrors = {}
     const pErrors = {}
     const rErrors = {}
     let valid = true
+
+    // validate DSAI header fields
+    if(!dsaiData.projectName || !dsaiData.projectName.trim()){ dErrors.projectName = 'Required'; valid = false }
+    if(!dsaiData.engagementName || !dsaiData.engagementName.trim()){ dErrors.engagementName = 'Required'; valid = false }
+    if(!dsaiData.engagementId || !dsaiData.engagementId.trim()){ dErrors.engagementId = 'Required'; valid = false }
 
     // validate phases
     phases.forEach(p => {
@@ -56,12 +63,15 @@ export default function ProjectSample(){
     resources.forEach(r => {
       const errs = {}
       if(!r.name || !r.name.trim()) { errs.name = 'Required'; valid = false }
+      // GPN required
+      if(!r.gpn || !String(r.gpn).trim()) { errs.gpn = 'Required'; valid = false }
       if(!r.start) { errs.start = 'Required'; valid = false }
       if(!r.end) { errs.end = 'Required'; valid = false }
       if(r.start && r.end && r.start > r.end) { errs.order = 'Start must be before End'; valid = false }
       if(Object.keys(errs).length) rErrors[r.id] = errs
     })
 
+    setDsaiErrors(dErrors)
     setPhaseErrors(pErrors)
     setResourceErrors(rErrors)
     return valid
@@ -74,6 +84,7 @@ export default function ProjectSample(){
       console.log('DSAI saved', { dsaiData, phases, resources })
       setModalOpen(false)
       // clear errors
+      setDsaiErrors({})
       setPhaseErrors({})
       setResourceErrors({})
     } else {
@@ -349,20 +360,20 @@ export default function ProjectSample(){
                 <div style={{marginBottom:12,background:'#fff',border:'1px solid #f3f4f6',borderRadius:8,padding:12}}>
                   <div style={{display:'grid',gap:12}}>
                     <div>
-                      <label htmlFor="modalProjectName" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Project Name</label>
-                      <input id="modalProjectName" type="text" value={dsaiData.projectName} onChange={(e)=>setDsaiData(s=>({...s,projectName:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                      <label htmlFor="modalProjectName" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Project Name <span style={{color:'#ef4444'}}>*</span></label>
+                      <input id="modalProjectName" className={dsaiErrors.projectName ? 'invalid' : ''} type="text" value={dsaiData.projectName} onChange={(e)=>setDsaiData(s=>({...s,projectName:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border: dsaiErrors.projectName ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                     </div>
 
                     {/* Stack Engagement Name and Engagement ID vertically instead of side-by-side */}
                     <div style={{display:'grid',gap:12}}>
                       <div>
-                        <label htmlFor="modalEngagementName" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement Name</label>
-                        <input id="modalEngagementName" type="text" value={dsaiData.engagementName} onChange={(e)=>setDsaiData(s=>({...s,engagementName:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                        <label htmlFor="modalEngagementName" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement Name <span style={{color:'#ef4444'}}>*</span></label>
+                        <input id="modalEngagementName" className={dsaiErrors.engagementName ? 'invalid' : ''} type="text" value={dsaiData.engagementName} onChange={(e)=>setDsaiData(s=>({...s,engagementName:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border: dsaiErrors.engagementName ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                       </div>
 
                       <div>
-                        <label htmlFor="modalEngagementId" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement ID</label>
-                        <input id="modalEngagementId" type="text" value={dsaiData.engagementId} onChange={(e)=>setDsaiData(s=>({...s,engagementId:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                        <label htmlFor="modalEngagementId" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement ID <span style={{color:'#ef4444'}}>*</span></label>
+                        <input id="modalEngagementId" className={dsaiErrors.engagementId ? 'invalid' : ''} type="text" value={dsaiData.engagementId} onChange={(e)=>setDsaiData(s=>({...s,engagementId:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border: dsaiErrors.engagementId ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                       </div>
                     </div>
                   </div>
@@ -432,6 +443,10 @@ export default function ProjectSample(){
                           <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
                           <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
 
+                          {/* GPN field (new) */}
+                          <label style={{fontWeight:700}}>GPN <span style={{color:'#ef4444'}}>*</span></label>
+                          <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{padding:10,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+
                           <label style={{fontWeight:700}}>Level</label>
                           <select className="resource-level" value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
                             <option>Partner</option>
@@ -447,6 +462,7 @@ export default function ProjectSample(){
                             <option>Australia</option>
                           </select>
 
+                          {/* Start / End dates for resource (two-column grid) */}
                           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                             <div>
                               <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
