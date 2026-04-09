@@ -6,6 +6,8 @@ export default function ProjectSample(){
   // DSAI onboard inline form state
   const [dsaiOnboardOpen, setDsaiOnboardOpen] = useState(false)
   const [dsaiData, setDsaiData] = useState({ projectName: 'Website Redesign', engagementName: '', engagementId: '', startDate: '', endDate: '' })
+  const [dsaiInlineMessage, setDsaiInlineMessage] = useState('')
+  const [dsaiOnboardSaved, setDsaiOnboardSaved] = useState(false)
 
   // Phases for modal
   const [phases, setPhases] = useState([])
@@ -92,6 +94,25 @@ export default function ProjectSample(){
       const el = document.querySelector('.invalid') || document.querySelector('.remove-phase')
       if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'})
     }
+  }
+
+  function handleInlineSaveDsai(){
+    const errs = {}
+    if(!dsaiData.projectName || !dsaiData.projectName.trim()){ errs.projectName = 'Required' }
+    if(!dsaiData.engagementName || !dsaiData.engagementName.trim()){ errs.engagementName = 'Required' }
+    if(!dsaiData.engagementId || !dsaiData.engagementId.trim()){ errs.engagementId = 'Required' }
+    setDsaiErrors(errs)
+    if(Object.keys(errs).length){
+      const el = document.querySelector('.invalid')
+      if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'})
+      return
+    }
+    // persist to localStorage for now (prototype)
+    try{ localStorage.setItem('dsaiOnboard', JSON.stringify(dsaiData)) }catch(e){ /* ignore */ }
+    setDsaiOnboardSaved(true)
+    setDsaiInlineMessage('Saved successfully')
+    setTimeout(()=>setDsaiInlineMessage(''),3000)
+    console.log('Inline DSAI saved', dsaiData)
   }
 
   return (
@@ -316,21 +337,28 @@ export default function ProjectSample(){
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Start Date</div>
-                        <input type="date" value={dsaiData.startDate} readOnly style={{width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#f3f4f6'}} />
+                        <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }}>
+                          <input id="inlineStartDate" type="date" value={dsaiData.startDate} onChange={(e)=>setDsaiData(s=>({...s,startDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
+                        </div>
                       </div>
 
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project End Date</div>
-                        <input type="date" value={dsaiData.endDate} readOnly style={{width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#f3f4f6'}} />
+                        <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }}>
+                          <input id="inlineEndDate" type="date" value={dsaiData.endDate} onChange={(e)=>setDsaiData(s=>({...s,endDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:18}}>
                     <button onClick={()=>{ console.log('Open DSAI modal', dsaiData); setModalOpen(true); }} style={{padding:'10px 14px',background:'#6a0dad',border:'none',color:'#fff',borderRadius:8,fontWeight:800,cursor:'pointer'}}>On-Board</button>
-                    <div style={{display:'flex',gap:10}}>
-                      <button onClick={()=>{}} style={{padding:'10px 14px',background:'#ef4444',border:'none',color:'#fff',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
-                      <button onClick={()=>{ console.log('Save DSAI details', dsaiData) }} style={{padding:'10px 14px',background:'#ffd200',border:'none',color:'#111827',borderRadius:8,fontWeight:800,cursor:'pointer'}}>Save</button>
+                    <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                      <button onClick={()=>{ try{ localStorage.removeItem('dsaiOnboard'); setDsaiData({ projectName:'', engagementName:'', engagementId:'', startDate:'', endDate:'' }); setDsaiOnboardSaved(false); setDsaiErrors({}); setDsaiInlineMessage('Cleared') ; setTimeout(()=>setDsaiInlineMessage(''),2000) }catch(e){} }} style={{padding:'10px 14px',background:'#ef4444',border:'none',color:'#fff',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
+                      <button onClick={handleInlineSaveDsai} style={{padding:'10px 14px',background:'#ffd200',border:'none',color:'#111827',borderRadius:8,fontWeight:800,cursor:'pointer'}}>Save</button>
+                      {dsaiInlineMessage && (
+                        <div style={{marginLeft:12,background:'#ecfdf5',color:'#065f46',padding:'8px 12px',borderRadius:8,fontWeight:700}}>{dsaiInlineMessage}</div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -339,6 +367,7 @@ export default function ProjectSample(){
               <div id="dsaiSummary" style={{display: dsaiOnboardOpen ? 'none' : 'block',marginTop:12}}>
                 {/* summary content and gantt mount will be injected by legacy JS */}
                 <div id="ganttMount" />
+                <style>{"#dsaiStatus{display:" + (dsaiOnboardSaved ? 'inline-flex' : 'none') + ";}"}</style>
               </div>
 
             </section>
