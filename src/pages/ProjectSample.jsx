@@ -5,7 +5,7 @@ export default function ProjectSample(){
   const [modalOpen, setModalOpen] = useState(false)
   // DSAI onboard inline form state
   const [dsaiOnboardOpen, setDsaiOnboardOpen] = useState(false)
-  const [dsaiData, setDsaiData] = useState({ projectName: 'Website Redesign', startDate: '', endDate: '' })
+  const [dsaiData, setDsaiData] = useState({ projectName: 'Website Redesign', engagementName: '', engagementId: '', startDate: '', endDate: '' })
 
   // Phases for modal
   const [phases, setPhases] = useState([])
@@ -31,6 +31,56 @@ export default function ProjectSample(){
   }
   function removeResource(id){
     setResources(s => s.filter(r => r.id !== id))
+  }
+
+  // Validation state for modal
+  const [phaseErrors, setPhaseErrors] = useState({})
+  const [resourceErrors, setResourceErrors] = useState({})
+
+  function validateModal(){
+    const pErrors = {}
+    const rErrors = {}
+    let valid = true
+
+    // validate phases
+    phases.forEach(p => {
+      const errs = {}
+      if(!p.name || !p.name.trim()) { errs.name = 'Required'; valid = false }
+      if(!p.start) { errs.start = 'Required'; valid = false }
+      if(!p.end) { errs.end = 'Required'; valid = false }
+      if(p.start && p.end && p.start > p.end) { errs.order = 'Start must be before End'; valid = false }
+      if(Object.keys(errs).length) pErrors[p.id] = errs
+    })
+
+    // validate resources
+    resources.forEach(r => {
+      const errs = {}
+      if(!r.name || !r.name.trim()) { errs.name = 'Required'; valid = false }
+      if(!r.start) { errs.start = 'Required'; valid = false }
+      if(!r.end) { errs.end = 'Required'; valid = false }
+      if(r.start && r.end && r.start > r.end) { errs.order = 'Start must be before End'; valid = false }
+      if(Object.keys(errs).length) rErrors[r.id] = errs
+    })
+
+    setPhaseErrors(pErrors)
+    setResourceErrors(rErrors)
+    return valid
+  }
+
+  function handleSaveDsai(){
+    const ok = validateModal()
+    if(ok){
+      // persist later; for now just close
+      console.log('DSAI saved', { dsaiData, phases, resources })
+      setModalOpen(false)
+      // clear errors
+      setPhaseErrors({})
+      setResourceErrors({})
+    } else {
+      // focus first error
+      const el = document.querySelector('.invalid') || document.querySelector('.remove-phase')
+      if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'})
+    }
   }
 
   return (
@@ -295,7 +345,28 @@ export default function ProjectSample(){
               </div>
 
               <div style={{marginTop:12}}>
-                <p style={{color:'#6b7280'}}>This modal mirrors the DSAI onboarding modal in the original HTML. Complex interactions (calendar, phases, persistence) are placeholders for a later React conversion.</p>
+                {/* Modal header fields: Project + Engagement details (moved here, above Phases) */}
+                <div style={{marginBottom:12,background:'#fff',border:'1px solid #f3f4f6',borderRadius:8,padding:12}}>
+                  <div style={{display:'grid',gap:12}}>
+                    <div>
+                      <label htmlFor="modalProjectName" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Project Name</label>
+                      <input id="modalProjectName" type="text" value={dsaiData.projectName} onChange={(e)=>setDsaiData(s=>({...s,projectName:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                    </div>
+
+                    {/* Stack Engagement Name and Engagement ID vertically instead of side-by-side */}
+                    <div style={{display:'grid',gap:12}}>
+                      <div>
+                        <label htmlFor="modalEngagementName" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement Name</label>
+                        <input id="modalEngagementName" type="text" value={dsaiData.engagementName} onChange={(e)=>setDsaiData(s=>({...s,engagementName:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                      </div>
+
+                      <div>
+                        <label htmlFor="modalEngagementId" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement ID</label>
+                        <input id="modalEngagementId" type="text" value={dsaiData.engagementId} onChange={(e)=>setDsaiData(s=>({...s,engagementId:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Phases section (matching ids expected by legacy JS) */}
                 <section>
@@ -313,7 +384,7 @@ export default function ProjectSample(){
                        <div key={p.id} className="phase-block" style={{background:'#f9fafb', border:'1px solid #e7e9ee', padding:14, borderRadius:10, marginTop:12}}>
                          <div style={{display:'flex',flexDirection:'column',gap:8}}>
                            <label style={{fontWeight:700}}>Phase Name <span style={{color:'#ef4444'}}>*</span></label>
-                           <input className="phase-name" value={p.name} onChange={(e)=>updatePhase(p.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                           <input className={"phase-name " + (phaseErrors[p.id]?.name ? 'invalid' : '')} value={p.name} onChange={(e)=>updatePhase(p.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border: phaseErrors[p.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
 
                            <label style={{fontWeight:700}}>Short Description</label>
                            <textarea className="phase-desc" value={p.desc} onChange={(e)=>updatePhase(p.id,{desc:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',minHeight:80}} />
@@ -321,11 +392,11 @@ export default function ProjectSample(){
                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                              <div>
                                <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                               <input className="phase-start" type="date" value={p.start} onChange={(e)=>updatePhase(p.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                               <input className={"phase-start " + (phaseErrors[p.id]?.start || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" value={p.start} onChange={(e)=>updatePhase(p.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.start || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                              </div>
                              <div>
                                <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                               <input className="phase-end" type="date" value={p.end} onChange={(e)=>updatePhase(p.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                               <input className={"phase-end " + (phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" value={p.end} onChange={(e)=>updatePhase(p.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                              </div>
                            </div>
 
@@ -359,7 +430,7 @@ export default function ProjectSample(){
                       <div key={r.id} className="resource-block" style={{background:'#f9fafb', border:'1px solid #e7e9ee', padding:14, borderRadius:10, marginTop:12}}>
                         <div style={{display:'flex',flexDirection:'column',gap:8}}>
                           <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
-                          <input className="resource-name" value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                          <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
 
                           <label style={{fontWeight:700}}>Level</label>
                           <select className="resource-level" value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
@@ -379,20 +450,21 @@ export default function ProjectSample(){
                           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                             <div>
                               <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                              <input className="resource-start" type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                              <input className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                             </div>
                             <div>
                               <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                              <input className="resource-end" type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                              <input className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                             </div>
                           </div>
 
                           <div style={{marginTop:8}}>
-                            <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e7e9ee',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
+                            <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
                           </div>
                         </div>
                       </div>
                     ))}
+
                   </div>
 
                   {/* Bottom add-resource button: shown when at least one resource exists */}
@@ -403,7 +475,7 @@ export default function ProjectSample(){
 
                 <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
                   <button onClick={()=>setModalOpen(false)} style={{padding:'8px 12px',borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',cursor:'pointer'}}>Cancel</button>
-                  <button onClick={()=>{ setModalOpen(false); }} id="submitDsai" style={{padding:'8px 12px',borderRadius:8,background:'#ffd200',border:'none',fontWeight:800,cursor:'pointer'}}>Save</button>
+                  <button onClick={handleSaveDsai} id="submitDsai" style={{padding:'8px 12px',borderRadius:8,background:'#ffd200',border:'none',fontWeight:800,cursor:'pointer'}}>Save</button>
                 </div>
 
               </div>
