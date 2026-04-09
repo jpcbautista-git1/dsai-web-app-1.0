@@ -3,6 +3,9 @@ import React, { useState } from 'react'
 export default function ProjectSample(){
   const [activeTab, setActiveTab] = useState('basic')
   const [modalOpen, setModalOpen] = useState(false)
+  // DSAI onboard inline form state
+  const [dsaiOnboardOpen, setDsaiOnboardOpen] = useState(false)
+  const [dsaiData, setDsaiData] = useState({ projectName: 'Website Redesign', startDate: '', endDate: '' })
 
   return (
     <main style={{padding:20, fontFamily:"'Plus Jakarta Sans', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", fontSize:14, color:'#374151'}}>
@@ -34,7 +37,7 @@ export default function ProjectSample(){
             <button onClick={()=>setActiveTab('tier')} aria-selected={activeTab==='tier'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='tier' ? '#eef2ff' : '#fafafa',color: activeTab==='tier' ? '#4338ca' : '#374151',cursor:'pointer'}}>Tier Classification</button>
 
             {/* DSAI tab (matches original HTML id for scripts) */}
-            <button id="tab-dsai" onClick={()=>setActiveTab('dsai')} aria-selected={activeTab==='dsai'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='dsai' ? '#550a8a' : '#6a0dad',color:'#fff',cursor:'pointer'}}>Onboard to DSAI</button>
+            <button id="tab-dsai" onClick={()=>{ setActiveTab('dsai'); setDsaiOnboardOpen(true); }} aria-selected={activeTab==='dsai'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='dsai' ? '#550a8a' : '#6a0dad',color:'#fff',cursor:'pointer'}}>Onboard to DSAI</button>
 
             <div style={{flex:1}} />
             {/* removed header onboard button — Onboard button is placed inside the DSAI panel to preserve original DOM id (btnOnboard) */}
@@ -199,27 +202,58 @@ export default function ProjectSample(){
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                   <div>
                     <h3 style={{margin:0}}>DSAI Onboarding</h3>
-                    <div style={{color:'#6b7280',fontSize:13}}>Run the DSAI onboarding to generate phases, resources and a project Gantt.</div>
                   </div>
                   <div>
                     <span id="dsaiStatus" className="status-toggle" style={{display:'none'}}><span className="dot" /> Onboarded</span>
                   </div>
                 </div>
 
-                <div style={{display:'flex',justifyContent:'flex-end'}}>
-                  <button id="btnOnboard" onClick={()=>setModalOpen(true)} style={{padding:'10px 14px',borderRadius:8,background:'#6a0dad',border:'none',color:'#fff',fontWeight:700,cursor:'pointer'}}>Onboard to DSAI</button>
-                </div>
+                {/* Onboard action moved to the top tab - button removed here */}
+
+                {/* <div style={{display:'flex',justifyContent:'flex-end'}}>
+                  <button id="btnOnboard" onClick={()=>{ setDsaiOnboardOpen(true); }} style={{padding:'10px 14px',borderRadius:8,background:'#6a0dad',border:'none',color:'#fff',fontWeight:700,cursor:'pointer'}}>Onboard to DSAI</button>
+                </div> */}
               </div>
 
-              <div id="dsaiSummary" style={{display:'none',marginTop:12}}>
+              {/* Inline DSAI onboard form - shown when user clicks Onboard to DSAI */}
+              {dsaiOnboardOpen && (
+                <div style={{marginTop:12,background:'#fff',border:'1px solid #e7e9ee',borderRadius:10,padding:18}}>
+                  {/* Row 1: Project Name full width */}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr',gap:12}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Name</div>
+                      <input type="text" value={dsaiData.projectName} readOnly style={{width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#f3f4f6'}} />
+                    </div>
+
+                    {/* Row 2: Start and End side-by-side */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Start Date</div>
+                        <input type="date" value={dsaiData.startDate} readOnly style={{width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#f3f4f6'}} />
+                      </div>
+
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project End Date</div>
+                        <input type="date" value={dsaiData.endDate} readOnly style={{width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#f3f4f6'}} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:18}}>
+                    <button onClick={()=>{ console.log('Open DSAI modal', dsaiData); setModalOpen(true); }} style={{padding:'10px 14px',background:'#6a0dad',border:'none',color:'#fff',borderRadius:8,fontWeight:800,cursor:'pointer'}}>On-Board</button>
+                    <div style={{display:'flex',gap:10}}>
+                      <button onClick={()=>{}} style={{padding:'10px 14px',background:'#ef4444',border:'none',color:'#fff',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
+                      <button onClick={()=>{ console.log('Save DSAI details', dsaiData) }} style={{padding:'10px 14px',background:'#ffd200',border:'none',color:'#111827',borderRadius:8,fontWeight:800,cursor:'pointer'}}>Save</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div id="dsaiSummary" style={{display: dsaiOnboardOpen ? 'none' : 'block',marginTop:12}}>
                 {/* summary content and gantt mount will be injected by legacy JS */}
                 <div id="ganttMount" />
               </div>
 
-              <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:12}}>
-                <button id="btnClearDsai" style={{padding:'8px 12px',borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',cursor:'pointer'}}>Clear DSAI</button>
-                <button id="btnSaveDsai" style={{padding:'8px 12px',borderRadius:8,background:'#ffd200',border:'none',fontWeight:800,cursor:'pointer'}}>Save DSAI</button>
-              </div>
             </section>
           )}
 
