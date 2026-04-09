@@ -20,6 +20,19 @@ export default function ProjectSample(){
     setPhases(s => s.filter(p => p.id !== id))
   }
 
+  // Resources for modal
+  const [resources, setResources] = useState([])
+  function addResource(prefill = {}){
+    const id = 'resource-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8)
+    setResources(s => ([...s, { id, name: prefill.name || '', level: prefill.level || 'Partner', location: prefill.location || 'Philippines', start: prefill.start || '', end: prefill.end || '' }]))
+  }
+  function updateResource(id, changes){
+    setResources(s => s.map(r => r.id === id ? { ...r, ...changes } : r))
+  }
+  function removeResource(id){
+    setResources(s => s.filter(r => r.id !== id))
+  }
+
   return (
     <main style={{padding:20, fontFamily:"'Plus Jakarta Sans', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", fontSize:14, color:'#374151'}}>
       <div style={{maxWidth:1200,margin:'0 auto'}}>
@@ -333,9 +346,59 @@ export default function ProjectSample(){
                 {/* Resources section (matching ids expected by legacy JS) */}
                 <section>
                   <h3>Resources</h3>
-                  <div className="section-actions top"><button className="btn btn-primary" id="btnAddResourceTop" style={{background:'#6a0dad', color:'white'}}>+ Add Resource</button></div>
-                  <div id="resourceContainer"></div>
-                  <div className="section-actions bottom" id="resourceBottomActions" style={{display:'none'}}><button className="btn btn-primary" id="btnAddResourceBottom" style={{background:'#6a0dad', color:'white'}}>+ Add Resource</button></div>
+
+                  {/* Top add-resource button: only show when no resources exist (legacy id btnAddResourceTop) */}
+                  {resources.length === 0 && (
+                    <div className="section-actions top" style={{marginBottom:8}}>
+                      <button className="btn btn-primary" id="btnAddResourceTop" onClick={()=>addResource()} style={{background:'#6a0dad', color:'white', borderRadius:8, cursor:'pointer', padding:'8px 14px'}}>+ Add Resource</button>
+                    </div>
+                  )}
+
+                  <div id="resourceContainer">
+                    {resources.map(r => (
+                      <div key={r.id} className="resource-block" style={{background:'#f9fafb', border:'1px solid #e7e9ee', padding:14, borderRadius:10, marginTop:12}}>
+                        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                          <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
+                          <input className="resource-name" value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+
+                          <label style={{fontWeight:700}}>Level</label>
+                          <select className="resource-level" value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
+                            <option>Partner</option>
+                            <option>Senior</option>
+                            <option>Mid</option>
+                            <option>Junior</option>
+                          </select>
+
+                          <label style={{fontWeight:700}}>Location</label>
+                          <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
+                            <option>Philippines</option>
+                            <option>India</option>
+                            <option>Australia</option>
+                          </select>
+
+                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                            <div>
+                              <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
+                              <input className="resource-start" type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                            </div>
+                            <div>
+                              <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
+                              <input className="resource-end" type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                            </div>
+                          </div>
+
+                          <div style={{marginTop:8}}>
+                            <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e7e9ee',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Bottom add-resource button: shown when at least one resource exists */}
+                  <div className="section-actions bottom" id="resourceBottomActions" style={{display: resources.length ? 'flex' : 'none', justifyContent:'flex-end', paddingTop:12, paddingBottom:8}}>
+                    <button className="btn btn-primary" id="btnAddResourceBottom" style={{background:'#6a0dad', color:'white', borderRadius:8, cursor:'pointer', padding:'8px 14px'}} onClick={()=>addResource()}>+ Add Resource</button>
+                  </div>
                 </section>
 
                 <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
