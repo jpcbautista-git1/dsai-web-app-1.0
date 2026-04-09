@@ -353,10 +353,61 @@ export default function Dsai(){
           </div>
 
           {/* Tabs */}
-          <div style={{display:'flex',gap:8,alignItems:'center',margin:'12px 0',padding:8,background:'#f8fbff',borderRadius:12,border:'1px solid #e6eefb'}}>
-            <button onClick={() => setActiveTab('dsai')} style={{padding:'8px 14px',borderRadius:10,background: activeTab === 'dsai' ? '#fff' : 'transparent',border: activeTab === 'dsai' ? '1px solid #6366f1' : '1px solid transparent',boxShadow: activeTab === 'dsai' ? '0 6px 18px rgba(99,102,241,0.12)' : 'none',fontWeight:800,cursor:'pointer'}}>DSAI</button>
-            <button onClick={() => setActiveTab('upload')} style={{padding:'8px 14px',borderRadius:10,background: activeTab === 'upload' ? '#fff' : 'transparent',border: activeTab === 'upload' ? '1px solid #6366f1' : '1px solid transparent',boxShadow: activeTab === 'upload' ? '0 6px 18px rgba(99,102,241,0.12)' : 'none',fontWeight:800,cursor:'pointer'}}>Upload</button>
-            <button onClick={() => setActiveTab('dex')} style={{padding:'8px 14px',borderRadius:10,background: activeTab === 'dex' ? '#fff' : 'transparent',border: activeTab === 'dex' ? '1px solid #6366f1' : '1px solid transparent',boxShadow: activeTab === 'dex' ? '0 6px 18px rgba(99,102,241,0.12)' : 'none',fontWeight:800,cursor:'pointer'}}>DEX</button>
+          <div style={{display:'flex',alignItems:'center',margin:'12px 0',padding:6,background:'#eff6ff',borderRadius:12,border:'1px solid #c7e0ff'}}>
+            {/* first tab - rounded left */}
+            <button
+              onClick={() => setActiveTab('dsai')}
+              aria-pressed={activeTab === 'dsai'}
+              style={{
+                padding:'10px 16px',
+                borderRadius:8,
+                border: activeTab === 'dsai' ? '1px solid #6366f1' : '1px solid #e2e8f0',
+                background: activeTab === 'dsai' ? '#ffffff' : '#f1f5f9',
+                color: activeTab === 'dsai' ? '#0f172a' : '#475569',
+                fontWeight:800,
+                cursor:'pointer',
+                borderRight: 'none',
+                boxShadow: activeTab === 'dsai' ? '0 8px 24px rgba(99,102,241,0.12)' : 'none',
+                borderBottom: activeTab === 'dsai' ? '3px solid #6366f1' : '3px solid transparent'
+              }}
+            >DSAI</button>
+
+            {/* middle tab */}
+            <button
+              onClick={() => setActiveTab('upload')}
+              aria-pressed={activeTab === 'upload'}
+              style={{
+                padding:'10px 16px',
+                borderRadius:0,
+                borderTop: activeTab === 'upload' ? '1px solid #6366f1' : '1px solid #e2e8f0',
+                borderBottom: activeTab === 'upload' ? '3px solid #6366f1' : '3px solid transparent',
+                borderLeft: '1px solid #e2e8f0',
+                borderRight: '1px solid #e2e8f0',
+                background: activeTab === 'upload' ? '#ffffff' : '#f1f5f9',
+                color: activeTab === 'upload' ? '#0f172a' : '#475569',
+                fontWeight:800,
+                cursor:'pointer',
+                boxShadow: activeTab === 'upload' ? '0 8px 24px rgba(99,102,241,0.12)' : 'none'
+              }}
+            >Upload</button>
+
+            {/* last tab - rounded right */}
+            <button
+              onClick={() => setActiveTab('dex')}
+              aria-pressed={activeTab === 'dex'}
+              style={{
+                padding:'10px 16px',
+                borderRadius:8,
+                border: activeTab === 'dex' ? '1px solid #6366f1' : '1px solid #e2e8f0',
+                background: activeTab === 'dex' ? '#ffffff' : '#f1f5f9',
+                color: activeTab === 'dex' ? '#0f172a' : '#475569',
+                fontWeight:800,
+                cursor:'pointer',
+                borderLeft: 'none',
+                boxShadow: activeTab === 'dex' ? '0 8px 24px rgba(99,102,241,0.12)' : 'none',
+                borderBottom: activeTab === 'dex' ? '3px solid #6366f1' : '3px solid transparent'
+              }}
+            >DEX</button>
           </div>
           
           {/* subtle divider to separate tabs from content */}
@@ -506,7 +557,6 @@ export default function Dsai(){
           {/* Upload tab content */}
           {activeTab === 'upload' && (
             <div style={{padding:12}}>
-              <div style={{fontSize:16,fontWeight:800,marginBottom:8}}>Upload</div>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <input id="reportUpload" type="file" accept=".csv,.json,.ndjson,.xlsb" ref={uploadRef} onChange={handleFileUpload} style={{display:'none'}} />
                 <button id="btnUploadReport" onClick={onUploadClick} style={{padding:'8px 12px',borderRadius:8,background:'#fff',border:'1px solid #e6e6ef',cursor:'pointer',fontWeight:800}}>Upload report</button>
