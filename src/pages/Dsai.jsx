@@ -173,13 +173,18 @@ export default function Dsai(){
           // if not found, poll
           if (!text && ext === 'xlsb') {
             try {
-              text = await pollForProcessed(jobId, 15, 2000, (attempt, attempts) => {
-                const pct = Math.round((attempt / attempts) * 100)
-                if (!uploadSuccess) {
-                  setLoadingProgress(pct <= 80 ? pct : 80)
-                  setLoadingMessage(`Processing report... (${attempt}/${attempts})`)
-                }
-              })
+              // don't attempt polling if the server did not return a jobId
+              if (jobId) {
+                text = await pollForProcessed(jobId, 15, 2000, (attempt, attempts) => {
+                  const pct = Math.round((attempt / attempts) * 100)
+                  if (!uploadSuccess) {
+                    setLoadingProgress(pct <= 80 ? pct : 80)
+                    setLoadingMessage(`Processing report... (${attempt}/${attempts})`)
+                  }
+                })
+              } else {
+                console.warn('No jobId returned from upload; skipping poll')
+              }
             } catch (err) {
               console.warn('Processed file not available yet', err)
             }
@@ -206,14 +211,46 @@ export default function Dsai(){
           // parse based on extension of returned content or original file
           let data = null
           // if the returned text looks like NDJSON (lines of JSON), prefer that
-          const isNdjson = text.split(/\r?\n/).filter(Boolean).every(l => {
+          const lines = text.split(/\r?\n/).filter(Boolean)
+          const isNdjson = lines.length > 0 && lines.every(l => {
             try { JSON.parse(l); return true } catch (e) { return false }
           })
+
           if (isNdjson) {
-            data = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l))
+            data = lines.map(l => JSON.parse(l))
           } else {
             // attempt JSON parse, then CSV
-            try { data = JSON.parse(text) } catch (e) {
+            let maybeObj = null
+            try {
+              maybeObj = JSON.parse(text)
+            } catch (e) {
+              maybeObj = null
+            }
+
+            if (maybeObj) {
+              // worker may emit a summary JSON like { projects: [...] }
+              if (Array.isArray(maybeObj.projects)) {
+                const mapped = (maybeObj.projects || []).map(p => ({
+                  project_id: p.project_id || p.gpn || p.id || p.project_id || (p.project_name || p.project || p.name) || 'unknown',
+                  project_name: p.project_name || p.project || p.gpn || p.name || p.projectName || 'unknown',
+                  hours: p.total_hours || p.totalHours || p.hours || 0,
+                  last_tx: p.last_tx || p.lastTx || p.lastTransaction || null,
+                  people: Array.isArray(p.people) ? p.people.map(x => ({ person: x.person_name || x.person || x.name || '', hours: x.hours || x.h || 0 })) : []
+                }))
+                setProjectSummaries(mapped.map(p => ({ ...p, total_hours: p.hours || 0 })))
+                setParsedData(mapped.map(p => ({ project_name: p.project_name, project_id: p.project_id })))
+                console.log('Parsed summary JSON (background):', maybeObj.projects)
+              } else if (Array.isArray(maybeObj)) {
+                data = maybeObj
+              } else if (Array.isArray(maybeObj.rows)) {
+                data = maybeObj.rows
+              } else if (Array.isArray(maybeObj.data)) {
+                data = maybeObj.data
+              } else {
+                // fallback: treat the object as a single-row array
+                data = [maybeObj]
+              }
+            } else {
               try { data = parseCSV(text) } catch (e2) { data = null }
             }
           }
