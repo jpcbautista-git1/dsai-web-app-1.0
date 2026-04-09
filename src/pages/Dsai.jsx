@@ -363,6 +363,16 @@ export default function Dsai(){
                  Sync All
                </button>
 
+               {/* Export button - blue */}
+               <button onClick={() => console.log('Export clicked')} style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 12px',fontSize:12,fontWeight:700,background:'#2563eb',color:'#fff',borderRadius:10,border:'1px solid #1e40af',cursor:'pointer'}} title="Export projects">
+                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                   <path d="M7 10l5 5 5-5" />
+                   <path d="M12 15V3" />
+                 </svg>
+                 Export
+               </button>
+
                <button style={{width:34,height:34,display:'grid',placeItems:'center',background:'#fff',border:'1px solid #e3e6ef',borderRadius:10,cursor:'pointer'}} aria-label="Settings">
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="currentColor">
                   <path d="M19.14 12.94a7.07 7.07 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.02 7.02 0 00-1.61-.93l-.36-2.54A.5.5 0 0013.7 2h-3.4a.5.5 0 00-.5.42l-.36 2.54a7.02 7.02 0 00-1.61.93l-2.39-.96a.5.5 0 00-.6.22L2.71 8.84a.5.5 0 00.12.64l2.03 1.58a7.07 7.07 0 000 1.88L2.83 14.5a.5.5 0 00-.12.64l1.92 3.32c.13.23.39.34.6.22l2.39-.96c.5.38 1.04.7 1.61.93l.36 2.54c.05.27.27.47.5.47h3.4c.27 0 .45-.2.5-.47l.36-2.54c.57-.23 1.11-.55 1.61-.93l2.39.96c.22.12.48.01.6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.56zM12 15.5A3.5 3.5 0 1115.5 12 3.5 3.5 0 0112 15.5z" />
@@ -379,13 +389,13 @@ export default function Dsai(){
               aria-pressed={activeTab === 'dsai'}
               style={{
                 padding:'10px 16px',
-                borderRadius:8,
+                // keep full border so the right edge remains visible when active
+                borderRadius: '8px 6px 6px 8px',
                 border: activeTab === 'dsai' ? '1px solid #2563eb' : '1px solid #e2e8f0',
                 background: activeTab === 'dsai' ? '#ffffff' : '#f8fafc',
                 color: activeTab === 'dsai' ? '#0f172a' : '#475569',
                 fontWeight:800,
                 cursor:'pointer',
-                borderRight: 'none',
                 boxShadow: activeTab === 'dsai' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
               }}
             >DSAI</button>
@@ -393,7 +403,7 @@ export default function Dsai(){
             {/* separator */}
             <div style={{width:1, height:22, background:'#e6eef6', margin:'0 6px'}} aria-hidden />
 
-            {/* middle tab */}
+            {/* upload tab */}
             <button
               onClick={() => setActiveTab('upload')}
               aria-pressed={activeTab === 'upload'}
@@ -408,25 +418,6 @@ export default function Dsai(){
                 boxShadow: activeTab === 'upload' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
               }}
             >Upload</button>
-
-            {/* separator */}
-            <div style={{width:1, height:22, background:'#e6eef6', margin:'0 6px'}} aria-hidden />
-
-            {/* last tab - rounded right */}
-            <button
-              onClick={() => setActiveTab('dex')}
-              aria-pressed={activeTab === 'dex'}
-              style={{
-                padding:'10px 16px',
-                borderRadius:8,
-                border: activeTab === 'dex' ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                background: activeTab === 'dex' ? '#ffffff' : '#f8fafc',
-                color: activeTab === 'dex' ? '#0f172a' : '#475569',
-                fontWeight:800,
-                cursor:'pointer',
-                boxShadow: activeTab === 'dex' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
-              }}
-            >DEX</button>
           </div>
           
           {/* subtle divider to separate tabs from content (reduced) */}
@@ -510,7 +501,7 @@ export default function Dsai(){
               {/* subtools */}
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'12px 0',borderTop:'1px solid #eef1f7'}}>
                 <div>
-                  <button style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e3e6ef',fontWeight:800,cursor:'pointer'}}> 
+                  <button style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e3e6ef',fontWeight:800,cursor:'pointer'}}>
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="#3b4251"><path d="M3 5h18v2H3V5zm4 6h10v2H7v-2zm3 6h4v2h-4v-2z"/></svg>
                     Filter
                   </button>
@@ -533,8 +524,10 @@ export default function Dsai(){
                         <th style={{padding:'12px 10px'}}>RAG Status</th>
                         <th style={{padding:'12px 10px'}}>AI Risk</th>
                         <th style={{padding:'12px 10px'}}>Sync</th>
-                        <th style={{padding:'12px 10px'}}>Sync</th>
-                        <th style={{padding:'12px 10px'}}>Key Risks</th>
+                        <th style={{padding:'12px 10px',verticalAlign:'top'}} aria-label="DEX actions" />
+                        <th style={{padding:'12px 10px',verticalAlign:'top',color:'#6a7280'}}>
+                          Key Risks
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -561,6 +554,9 @@ export default function Dsai(){
                             <ul style={{margin:0,paddingLeft:16}}>{/* placeholder risks */}
                               <li>{p.total_hours} hrs</li>
                             </ul>
+                          </td>
+                          <td style={{padding:'12px 10px',verticalAlign:'top'}}>
+                            <button onClick={() => console.log('DEX', p.project_id)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer'}}>DEX</button>
                           </td>
                         </tr>
                       ))}
@@ -597,14 +593,6 @@ export default function Dsai(){
                   <pre style={{maxHeight:240,overflow:'auto',fontSize:12,whiteSpace:'pre-wrap',marginTop:8}}>{JSON.stringify(parsedData.slice(0,20), null, 2)}</pre>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* DEX tab content */}
-          {activeTab === 'dex' && (
-            <div style={{padding:12}}>
-              <div style={{fontSize:16,fontWeight:800}}>DEX</div>
-              <div style={{marginTop:8,color:'#6b7280'}}>DEX tools and integrations will appear here.</div>
             </div>
           )}
 
