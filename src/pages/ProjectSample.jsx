@@ -758,9 +758,14 @@ export default function ProjectSample(){
                           <label style={{fontWeight:700}}>Level</label>
                           <select className="resource-level" value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
                             <option>Partner</option>
-                            <option>Senior</option>
-                            <option>Mid</option>
-                            <option>Junior</option>
+                            <option>Executive Director</option>
+                            <option>Associate Director</option>
+                            <option>Senior Manager</option>
+                            <option>Manager</option>
+                            <option>Senior 3</option>
+                            <option>Senior 1-2</option>
+                            <option>Staff 2-3</option>
+                            <option>Staff 1</option>
                           </select>
 
                           <label style={{fontWeight:700}}>Location</label>
