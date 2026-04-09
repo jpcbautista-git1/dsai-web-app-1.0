@@ -353,7 +353,7 @@ export default function Dsai(){
           </div>
 
           {/* Tabs */}
-          <div style={{display:'flex',alignItems:'center',margin:'12px 0',padding:6,background:'#eff6ff',borderRadius:12,border:'1px solid #c7e0ff'}}>
+          <div style={{display:'flex',alignItems:'center',margin:'8px 0',padding:4,background:'#f8fafc',borderRadius:12,border:'1px solid #e6eefb'}}>
             {/* first tab - rounded left */}
             <button
               onClick={() => setActiveTab('dsai')}
@@ -361,16 +361,18 @@ export default function Dsai(){
               style={{
                 padding:'10px 16px',
                 borderRadius:8,
-                border: activeTab === 'dsai' ? '1px solid #6366f1' : '1px solid #e2e8f0',
-                background: activeTab === 'dsai' ? '#ffffff' : '#f1f5f9',
+                border: activeTab === 'dsai' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                background: activeTab === 'dsai' ? '#ffffff' : '#f8fafc',
                 color: activeTab === 'dsai' ? '#0f172a' : '#475569',
                 fontWeight:800,
                 cursor:'pointer',
                 borderRight: 'none',
-                boxShadow: activeTab === 'dsai' ? '0 8px 24px rgba(99,102,241,0.12)' : 'none',
-                borderBottom: activeTab === 'dsai' ? '3px solid #6366f1' : '3px solid transparent'
+                boxShadow: activeTab === 'dsai' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
               }}
             >DSAI</button>
+
+            {/* separator */}
+            <div style={{width:1, height:22, background:'#e6eef6', margin:'0 6px'}} aria-hidden />
 
             {/* middle tab */}
             <button
@@ -378,18 +380,18 @@ export default function Dsai(){
               aria-pressed={activeTab === 'upload'}
               style={{
                 padding:'10px 16px',
-                borderRadius:0,
-                borderTop: activeTab === 'upload' ? '1px solid #6366f1' : '1px solid #e2e8f0',
-                borderBottom: activeTab === 'upload' ? '3px solid #6366f1' : '3px solid transparent',
-                borderLeft: '1px solid #e2e8f0',
-                borderRight: '1px solid #e2e8f0',
-                background: activeTab === 'upload' ? '#ffffff' : '#f1f5f9',
+                borderRadius:6,
+                border: activeTab === 'upload' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                background: activeTab === 'upload' ? '#ffffff' : '#f8fafc',
                 color: activeTab === 'upload' ? '#0f172a' : '#475569',
                 fontWeight:800,
                 cursor:'pointer',
-                boxShadow: activeTab === 'upload' ? '0 8px 24px rgba(99,102,241,0.12)' : 'none'
+                boxShadow: activeTab === 'upload' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
               }}
             >Upload</button>
+
+            {/* separator */}
+            <div style={{width:1, height:22, background:'#e6eef6', margin:'0 6px'}} aria-hidden />
 
             {/* last tab - rounded right */}
             <button
@@ -398,20 +400,18 @@ export default function Dsai(){
               style={{
                 padding:'10px 16px',
                 borderRadius:8,
-                border: activeTab === 'dex' ? '1px solid #6366f1' : '1px solid #e2e8f0',
-                background: activeTab === 'dex' ? '#ffffff' : '#f1f5f9',
+                border: activeTab === 'dex' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                background: activeTab === 'dex' ? '#ffffff' : '#f8fafc',
                 color: activeTab === 'dex' ? '#0f172a' : '#475569',
                 fontWeight:800,
                 cursor:'pointer',
-                borderLeft: 'none',
-                boxShadow: activeTab === 'dex' ? '0 8px 24px rgba(99,102,241,0.12)' : 'none',
-                borderBottom: activeTab === 'dex' ? '3px solid #6366f1' : '3px solid transparent'
+                boxShadow: activeTab === 'dex' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
               }}
             >DEX</button>
           </div>
           
-          {/* subtle divider to separate tabs from content */}
-          <div style={{height:12}} />
+          {/* subtle divider to separate tabs from content (reduced) */}
+          <div style={{height:6}} />
 
           {/* DSAI tab content (KPIs + table) */}
           {activeTab === 'dsai' && (
@@ -538,7 +538,7 @@ export default function Dsai(){
                           <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff1f1',color:'#b91c1c',fontWeight:900}}>—</span></td>
                           <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
                           <td style={{padding:'12px 10px',verticalAlign:'top',color:'#6a7280'}}>{p.last_tx || ''}</td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top',color:'#2a2f36'}}>
+                          <td style={{padding:'12px 10px',verticalAlign:'top',color:'#2a2a2c'}}>
                             <ul style={{margin:0,paddingLeft:16}}>{/* placeholder risks */}
                               <li>{p.total_hours} hrs</li>
                             </ul>
