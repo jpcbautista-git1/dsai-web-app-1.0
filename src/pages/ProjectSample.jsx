@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 
 export default function ProjectSample(){
   const [activeTab, setActiveTab] = useState('basic')
@@ -175,58 +175,108 @@ export default function ProjectSample(){
     }catch(e){ return 0 }
   }
 
-  // Lightweight Gantt renderer (function form to avoid parsing ambiguity)
+  // Improved Gantt renderer with axis, responsive sizing and tooltip
   function Gantt({ phases, projectStart, projectEnd }){
+    const containerRef = useRef(null)
+    const [width, setWidth] = useState(900)
+    const [hover, setHover] = useState(null)
+
+    useEffect(()=>{
+      const el = containerRef.current
+      if(!el) return
+      const obs = new ResizeObserver(()=>{
+        setWidth(Math.max(400, el.clientWidth || 900))
+      })
+      obs.observe(el)
+      setWidth(Math.max(400, el.clientWidth || 900))
+      return ()=>obs.disconnect()
+    }, [containerRef.current])
+
     const parseDateForGantt = s => {
       if(!s) return null
-      if(/^[0-3]\d\/[0-1]\d\/[0-9]{4}$/.test(s)){
-        const [d,m,y]=s.split('/')
-        return new Date(`${y}-${m}-${d}`)
-      }
+      if(/^[0-3]\d\/[0-1]\d\/[0-9]{4}$/.test(s)){ const [d,m,y]=s.split('/'); return new Date(`${y}-${m}-${d}`) }
       if(/^[0-9]{4}-[0-9]{2}-[0-9]{2}/.test(s)) return new Date(s)
       const d = new Date(s); return isNaN(d) ? null : d
     }
-    const daysDiff = (a,b) => { const A=parseDateForGantt(a), B=parseDateForGantt(b); if(!A||!B) return 0; return Math.ceil((B - A)/(1000*60*60*24)) }
-
     const phaseStarts = phases.map(p=>parseDateForGantt(p.start)).filter(Boolean)
     const phaseEnds = phases.map(p=>parseDateForGantt(p.end)).filter(Boolean)
     const pStart = parseDateForGantt(projectStart) || (phaseStarts.length ? new Date(Math.min(...phaseStarts.map(d=>d.getTime()))) : null)
     const pEnd = parseDateForGantt(projectEnd) || (phaseEnds.length ? new Date(Math.max(...phaseEnds.map(d=>d.getTime()))) : null)
     if(!pStart || !pEnd || pStart > pEnd) return (<div style={{height:80,display:'flex',alignItems:'center',color:'#9ca3af'}}>Insufficient dates for Gantt.</div>)
 
-    const totalDays = daysDiff(pStart.toISOString().slice(0,10), pEnd.toISOString().slice(0,10)) || 1
-    const width = 1000
-    const dayWidth = width / totalDays
-    const height = Math.max(80, phases.length * 28 + 20)
+    // timeline calculations
+    const totalDays = Math.max(1, Math.ceil((pEnd - pStart)/(1000*60*60*24)) + 1)
+    const leftPad = 60
+    const rightPad = 20
+    const innerWidth = Math.max(200, width - leftPad - rightPad)
+    const dayWidth = innerWidth / totalDays
+    const rowHeight = 32
+    const height = 20 + phases.length * rowHeight + 40
+
+    // nice tick interval (days)
+    const approxTicks = Math.min(8, Math.max(2, Math.floor(innerWidth / 120)))
+    const tickDays = Math.ceil(totalDays / approxTicks)
+
+    const formatTick = d => `${('0'+d.getDate()).slice(-2)}/${('0'+(d.getMonth()+1)).slice(-2)}`
 
     return (
-      <div style={{overflow:'auto'}}>
-        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={Math.min(height,160)} preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="gBar" x1="0" x2="1"><stop offset="0" stopColor="#eef2ff" /><stop offset="1" stopColor="#f8f7ff" /></linearGradient>
-          </defs>
-          {phases.map((p, idx) => {
-            const ps = parseDateForGantt(p.start)
-            const pe = parseDateForGantt(p.end)
-            if(!ps || !pe) return null
-            const startOffset = Math.max(0, Math.round((ps - pStart)/(1000*60*60*24)))
-            const lenDays = Math.max(1, Math.round((pe - ps)/(1000*60*60*24)) + 1)
-            const x = startOffset * dayWidth
-            const w = Math.max(6, lenDays * dayWidth)
-            const y = 10 + idx*28
-            return (
-              <g key={p.id || idx}>
-                <rect x={x} y={y} rx={6} ry={6} width={w} height={18} fill="url(#gBar)" stroke="#e6e9f2" />
-                <text x={Math.min(x+8, Math.max(8, x+4))} y={y+13} fontSize={12} fill="#0f172a">{p.name || 'Phase'}</text>
+      <div ref={containerRef} style={{border:'1px solid #edf2ff',borderRadius:10,padding:12,background:'#fff'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <div style={{fontWeight:700,color:'#0f172a'}}>Timeline</div>
+          <div style={{color:'#6b7280',fontSize:12}}>{formatDate(pStart.toISOString().slice(0,10))} — {formatDate(pEnd.toISOString().slice(0,10))}</div>
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="xMinYMin meet">
+          {/* axis ticks */}
+          <g transform={`translate(${leftPad},20)`}>
+            {[...Array(approxTicks+1).keys()].map(i => {
+              const d = new Date(pStart.getTime() + Math.round(i * tickDays) * 24*60*60*1000)
+              const x = Math.round(((d - pStart)/(1000*60*60*24)) * dayWidth)
+              return (
+                <g key={i}>
+                  <line x1={x} x2={x} y1={0} y2={phases.length*rowHeight + 6} stroke="#eef2ff" />
+                  <text x={x} y={phases.length*rowHeight + 20} fontSize={11} fill="#6b7280" textAnchor="middle">{formatTick(d)}</text>
+                </g>
+              )
+            })}
+
+            {/* phase bars */}
+            {phases.map((p, idx) => {
+              const ps = parseDateForGantt(p.start)
+              const pe = parseDateForGantt(p.end)
+              if(!ps || !pe) return null
+              const startOffset = Math.max(0, Math.round((ps - pStart)/(1000*60*60*24)))
+              const lenDays = Math.max(1, Math.round((pe - ps)/(1000*60*60*24)) + 1)
+              const x = startOffset * dayWidth
+              const w = Math.max(8, lenDays * dayWidth)
+              const y = idx * rowHeight
+              const color = ['#6a0dad','#4338ca','#0ea5a2','#f59e0b'][idx % 4]
+              return (
+                <g key={p.id || idx} onMouseEnter={()=>setHover({idx,x,y,w,p})} onMouseLeave={()=>setHover(null)}>
+                  <rect x={x} y={y} rx={6} ry={6} width={w} height={18} fill={color} opacity={0.12} stroke={color} />
+                  <rect x={x+2} y={y+2} rx={5} ry={5} width={Math.max(6,w-4)} height={14} fill={color} />
+                  <text x={x+8} y={y+12} fontSize={12} fill="#ffffff" style={{pointerEvents:'none'}}>{p.name || 'Phase'}</text>
+                </g>
+              )
+            })}
+
+            {/* today line */}
+            {(() => {
+              const today = new Date(); if(today < pStart || today > pEnd) return null
+              const off = Math.round((today - pStart)/(1000*60*60*24)) * dayWidth
+              return <g><line x1={off} x2={off} y1={0} y2={phases.length*rowHeight} stroke="#ef4444" strokeWidth={2} strokeDasharray="4 3" /><text x={off+6} y={-4} fontSize={11} fill="#ef4444">Today</text></g>
+            })()}
+
+            {/* hover tooltip */}
+            {hover && (
+              <g>
+                <rect x={hover.x + hover.w + 8} y={hover.y} rx={6} ry={6} width={220} height={64} fill="#0f172a" opacity={0.95} />
+                <text x={hover.x + hover.w + 16} y={hover.y + 18} fontSize={12} fill="#fff">{hover.p.name}</text>
+                <text x={hover.x + hover.w + 16} y={hover.y + 36} fontSize={11} fill="#d1d5db">{formatDate(hover.p.start)} → {formatDate(hover.p.end)}</text>
+                <text x={hover.x + hover.w + 16} y={hover.y + 52} fontSize={11} fill="#d1d5db">{hover.p.desc || ''}</text>
               </g>
-            )
-          })}
-          {(() => {
-            const today = new Date()
-            if(today < pStart || today > pEnd) return null
-            const off = Math.round((today - pStart)/(1000*60*60*24)) * dayWidth
-            return (<g><line x1={off} x2={off} y1={0} y2={height} stroke="#3b82f6" strokeWidth={2} strokeDasharray="2 4" /></g>)
-          })()}
+            )}
+
+          </g>
         </svg>
       </div>
     )
