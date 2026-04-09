@@ -128,6 +128,18 @@ export default function ProjectSample(){
     console.log('Inline DSAI saved', dsaiData)
   }
 
+  // Clear inline DSAI form, phases and resources (used by the Clear button)
+  function clearDsaiInline(){
+    setDsaiData({ projectName: '', engagementName: '', engagementId: '', startDate: '', endDate: '' })
+    setPhases([])
+    setResources([])
+    setDsaiOnboardSaved(false)
+    setDsaiInlineMessage('Cleared')
+    setTimeout(()=>setDsaiInlineMessage(''),2500)
+    // also remove persisted prototype payload
+    try{ localStorage.removeItem('dsaiOnboard') }catch(e){ /* ignore */ }
+  }
+
   // Simple rate card and helpers for summary cost calculation (used by saved summary)
   const RATE_CARD = {
     'Partner': { 'Philippines': 180.00, 'India': 180.00 },
@@ -503,7 +515,7 @@ export default function ProjectSample(){
 
           {/* DSAI panel (matches original HTML structure and ids) */}
           {activeTab === 'dsai' && (
-            <section id="panel-dsai" className="panel" role="tabpanel" aria-labelledby="tab-dsai" style={{padding:20}}>
+            <section id="panel-dsai" className="panel" role="tabpanel" aria-labelledby="tab-dsai" style={{padding:20, position: 'relative'}}>
               <div id="dsaiIntro" style={{display:'grid',gap:12}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                   <div>
@@ -701,6 +713,7 @@ export default function ProjectSample(){
                          </div>
                        </div>
                     ))}
+
                   </div>
                   <div className="section-actions bottom" id="phaseBottomActions" style={{display: phases.length ? 'flex' : 'none', justifyContent: 'flex-end', paddingTop:12, paddingBottom:8}}>
                     <button className="btn btn-primary" id="btnAddPhaseBottom" style={{background:'#6a0dad', color:'white', borderRadius:8, cursor:'pointer', padding:'8px 14px'}} onClick={()=>addPhase()}>+ Add Phase</button>
