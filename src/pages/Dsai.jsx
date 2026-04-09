@@ -30,6 +30,12 @@ export default function Dsai(){
   const [activeTab, setActiveTab] = useState('dsai')
   const onUploadClick = () => uploadRef.current?.click()
 
+  // DEX modal state and helpers
+  const [dexModalOpen, setDexModalOpen] = React.useState(false)
+  const [dexModalProject, setDexModalProject] = React.useState(null)
+  const openDexModal = (project) => { setDexModalProject(project); setDexModalOpen(true) }
+  const closeDexModal = () => { setDexModalOpen(false); setDexModalProject(null) }
+
   // compute summaries from parsed rows
   const computeProjectSummaries = (rows = []) => {
     const projects = {}
@@ -556,7 +562,7 @@ export default function Dsai(){
                             </ul>
                           </td>
                           <td style={{padding:'12px 10px',verticalAlign:'top'}}>
-                            <button onClick={() => console.log('DEX', p.project_id)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer'}}>DEX</button>
+                            <button onClick={() => openDexModal(p)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer'}}>DEX</button>
                           </td>
                         </tr>
                       ))}
@@ -565,7 +571,56 @@ export default function Dsai(){
                  </div>
                </div>
 
-              <div style={{height:220,marginTop:12,background:'linear-gradient(180deg, rgba(11,18,40,.06), rgba(11,18,40,.00))'}} aria-hidden="true" />
+               {/* DEX modal */}
+               {dexModalOpen && (
+                 <div style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'rgba(0,0,0,0.45)',zIndex:10000}} role="dialog" aria-modal="true">
+                   <div style={{width:880,maxWidth:'95%',maxHeight:'90%',overflow:'auto',background:'#fff',borderRadius:12,padding:20}}>
+                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                       <div>
+                         <div style={{fontSize:18,fontWeight:900}}>{dexModalProject?.project_name}</div>
+                         <div style={{fontSize:12,color:'#6b7280'}}>{dexModalProject?.people?.[0]?.person || 'Project Manager'}</div>
+                       </div>
+                       <div style={{display:'flex',gap:8}}>
+                         <button onClick={closeDexModal} style={{padding:'6px 10px',borderRadius:8,background:'#ef4444',color:'#fff',border:0,cursor:'pointer'}}>Close</button>
+                       </div>
+                     </div>
+
+                     <div style={{marginBottom:12,fontWeight:700,color:'#374151'}}>AI Risk Score: (AI) Red</div>
+                     <div style={{marginBottom:12,color:'#6b7280'}}>Explanation: (AI) Summary - the risks that were captured are shown below.</div>
+
+                     <div style={{overflow:'auto'}}>
+                       <table style={{width:'100%',borderCollapse:'collapse'}}>
+                         <thead>
+                           <tr style={{textAlign:'left',borderBottom:'1px solid #e6e9f2'}}>
+                             <th style={{padding:10}}>Risk</th>
+                             <th style={{padding:10}}>Risk level</th>
+                             <th style={{padding:10}}>Suggested Mitigation</th>
+                             <th style={{padding:10}}>Status</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           {dexModalProject?.key_risks && dexModalProject.key_risks.length > 0 ? (
+                             dexModalProject.key_risks.map((rk, idx) => (
+                               <tr key={idx}>
+                                 <td style={{padding:10}}>{rk}</td>
+                                 <td style={{padding:10}}>High</td>
+                                 <td style={{padding:10}}>-</td>
+                                 <td style={{padding:10}}>Open</td>
+                               </tr>
+                             ))
+                           ) : (
+                             <tr>
+                               <td style={{padding:10}} colSpan={4}>No risks available.</td>
+                             </tr>
+                           )}
+                         </tbody>
+                       </table>
+                     </div>
+                   </div>
+                 </div>
+               )}
+
+               <div style={{height:220,marginTop:12,background:'linear-gradient(180deg, rgba(11,18,40,.06), rgba(11,18,40,.00))'}} aria-hidden="true" />
             </>
           )}
 

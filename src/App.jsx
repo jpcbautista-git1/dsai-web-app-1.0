@@ -15,6 +15,17 @@ import './index.css'
 export default function App() {
   const [route, setRoute] = useState('home')
 
+  // navigation helper: set route and bring main content to top
+  const handleNavigate = (r) => {
+    setRoute(r)
+    // ensure scrolling happens after route change/render
+    requestAnimationFrame(() => {
+      const el = document.getElementById('app-content')
+      if (el) el.scrollTop = 0
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' })
+    })
+  }
+
   function renderRoute() {
     if (route === 'home') return <Home />
     if (route === 'projects') return <Projects onOpen={(r) => setRoute(r === 'sample' ? 'project' : r)} />
@@ -32,8 +43,8 @@ export default function App() {
     <div style={{minHeight: '100vh', display: 'flex', flexDirection: 'column'}}>
       <Topbar />
       <div id="app-root" style={{ display: 'flex', flex: 1, minHeight: '0' }}>
-        <Sidebar onNavigate={setRoute} active={route} />
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <Sidebar onNavigate={handleNavigate} active={route} />
+        <div id="app-content" style={{ flex: 1, minWidth: 0 }}>
           {renderRoute()}
         </div>
       </div>
