@@ -706,23 +706,29 @@ export default function Dsai(){
                       </div>
 
                       <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
-                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,tableLayout:'fixed'}}>
+                          <colgroup>
+                            <col style={{width:'25'}} />
+                            <col style={{width:'15%'}} />
+                            <col style={{width:'50%'}} />
+                            <col style={{width:'10%'}} />
+                          </colgroup>
                           <thead style={{background:'#f8fafc'}}>
                             <tr style={{textAlign:'left'}}>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Risk</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:140}}>Risk level</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'30%'}}>Risk</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'14%'}}>Risk level</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:120}}>Status</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'10%'}}>Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {dexModalProject?.key_risks && dexModalProject.key_risks.length > 0 ? (
                               dexModalProject.key_risks.map((rk, idx) => (
                                 <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827'}}>{rk}</td>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}><span style={{display:'inline-block',padding:'6px 8px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155'}}>{generateMitigationForRisk(rk)}</td>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}><span style={{display:'inline-block',padding:'6px 8px',borderRadius:6,background:'#ecfdf5',color:'#15803d',fontWeight:700,fontSize:12}}>Open</span></td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>{generateMitigationForRisk(rk)}</td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'10%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#ecfdf5',color:'#15803d',fontWeight:700,fontSize:12}}>Open</span></td>
                                 </tr>
                               ))
                             ) : (
