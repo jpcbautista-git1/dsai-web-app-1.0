@@ -149,6 +149,16 @@ export default function Dsai(){
     const f = e.target.files?.[0]
     if (!f) return
 
+    // Only accept .xlsb files for this upload feature
+    const _ext = (f.name.split('.').pop() || '').toLowerCase()
+    if (_ext !== 'xlsb') {
+      // brief user-visible message and early return
+      setLoading(true)
+      setLoadingMessage('Only .xlsb files are accepted for upload')
+      setTimeout(() => { setLoading(false); setLoadingMessage('') }, 1800)
+      return
+    }
+
     setLoading(true)
     setLoadingMessage('Uploading report...')
     setLoadingProgress(null)
@@ -332,6 +342,58 @@ export default function Dsai(){
     const n = name.replace(/\.uploaded$/i, '').replace(/\.(xlsb|xlsx|csv|json|ndjson)$/i, '')
     // replace separators with spaces and trim
     return n.replace(/[_\-\.]+/g, ' ').trim()
+  }
+
+  // sample suggested mitigations to display in the DEX modal
+  const sampleMitigations = [
+    'Increase staffing buffer and cross-train team members.',
+    'Rebaseline schedule and remove non-critical scope.',
+    'Engage stakeholders to unblock external dependencies.',
+    'Run focused QA and code reviews on risky components.',
+    'Allocate contingency budget and prioritize critical tasks.'
+  ]
+
+  // base font/style for modal to keep typography uniform and slightly smaller
+  const modalBaseFont = { fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial", fontSize:13, color:'#334155' }
+
+  // smarter mitigation generation: heuristics that inspect the risk text and produce proactive, prioritized suggestions
+  const generateMitigationForRisk = (risk) => {
+    if (!risk) return sampleMitigations[0]
+    const text = String(risk).toLowerCase()
+    const suggestions = []
+
+    if (/(staff|resource|capacity|skill|onboard)/.test(text)) {
+      suggestions.push('Increase staffing buffer: cross-train team members, onboard short-term contractors, and create a skills matrix to reassign tasks quickly.')
+    }
+    if (/(scope|creep|requirements|change)/.test(text)) {
+      suggestions.push('Rebaseline schedule and apply strict change control: remove non-critical scope, run a rapid scope review with stakeholders, and freeze change for the next sprint.')
+    }
+    if (/(dependenc|external|vendor|blocked|third[- ]party)/.test(text)) {
+      suggestions.push('Escalate to stakeholders and vendors: secure commitments with SLAs, unblock dependencies, and parallelize work where possible to reduce critical path risk.')
+    }
+    if (/(qa|test|bug|quality|regress|defect)/.test(text)) {
+      suggestions.push('Run focused QA sprints and increase code-review coverage: add targeted automated tests, create a test-and-fix window, and pair-review risky modules.')
+    }
+    if (/(budget|cost|contingency|fund)/.test(text)) {
+      suggestions.push('Allocate contingency budget and reprioritize features: protect critical deliverables and pause low-value work until stability returns.')
+    }
+    if (/(late|delay|schedule|timeline|slippage)/.test(text)) {
+      suggestions.push('Fast-track the critical path: add resources to critical tasks, split work into parallel streams, and publish a clear recovery plan with owners and dates.')
+    }
+    if (/(security|vulnerab|auth|encrypt|compli|gdpr)/.test(text)) {
+      suggestions.push('Run security scans and engage the security team immediately: apply patches, close vulnerabilities, and put compensating controls in place.')
+    }
+    if (/(integrat|data|api|migration|etl)/.test(text)) {
+      suggestions.push('Improve integration stability: test end-to-end with representative data, add monitoring/alerts, and prepare rollback and mitigation scripts.')
+    }
+
+    if (suggestions.length === 0) {
+      // generic, proactive approach when no keyword matches
+      suggestions.push('Triage the issue, assign a clear owner, perform a quick root-cause analysis, and set short, measurable remediation checkpoints (1-week cadence).')
+    }
+
+    // return the top 1-2 suggestions concatenated for concise display
+    return suggestions.slice(0, 2).join(' — ')
   }
 
   return (
@@ -573,52 +635,75 @@ export default function Dsai(){
 
                {/* DEX modal */}
                {dexModalOpen && (
-                 <div style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'rgba(0,0,0,0.45)',zIndex:10000}} role="dialog" aria-modal="true">
-                   <div style={{width:880,maxWidth:'95%',maxHeight:'90%',overflow:'auto',background:'#fff',borderRadius:12,padding:20}}>
-                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-                       <div>
-                         <div style={{fontSize:18,fontWeight:900}}>{dexModalProject?.project_name}</div>
-                         <div style={{fontSize:12,color:'#6b7280'}}>{dexModalProject?.people?.[0]?.person || 'Project Manager'}</div>
-                       </div>
-                       <div style={{display:'flex',gap:8}}>
-                         <button onClick={closeDexModal} style={{padding:'6px 10px',borderRadius:8,background:'#ef4444',color:'#fff',border:0,cursor:'pointer'}}>Close</button>
-                       </div>
-                     </div>
+                 <div style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'rgba(2,6,23,0.55)',zIndex:10000,padding:20}} role="dialog" aria-modal="true">
+                  <div style={{width:920,maxWidth:'100%',maxHeight:'92%',overflow:'hidden',background:'#fff',borderRadius:12,padding:0,boxShadow:'0 20px 60px rgba(2,6,23,0.35)',border:'1px solid rgba(15,23,42,0.06)',display:'flex',flexDirection:'column',...modalBaseFont}}>
 
-                     <div style={{marginBottom:12,fontWeight:700,color:'#374151'}}>AI Risk Score: (AI) Red</div>
-                     <div style={{marginBottom:12,color:'#6b7280'}}>Explanation: (AI) Summary - the risks that were captured are shown below.</div>
+                    {/* modal header */}
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #eef1f6'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:12}}>
+                        <div style={{width:48,height:48,display:'grid',placeItems:'center',borderRadius:10,background:'linear-gradient(135deg,#e0e7ff,#c7d2fe)',color:'#0f172a',fontWeight:800,fontSize:14}}>{(dexModalProject?.project_name||'').charAt(0).toUpperCase()}</div>
+                        <div>
+                          <div style={{fontSize:15,fontWeight:800,color:'#0f172a'}}>{dexModalProject?.project_name || 'Project'}</div>
+                          <div style={{fontSize:12,color:'#6b7280',marginTop:4}}>{dexModalProject?.people?.[0]?.person || 'Project Manager'}</div>
+                        </div>
+                      </div>
 
-                     <div style={{overflow:'auto'}}>
-                       <table style={{width:'100%',borderCollapse:'collapse'}}>
-                         <thead>
-                           <tr style={{textAlign:'left',borderBottom:'1px solid #e6e9f2'}}>
-                             <th style={{padding:10}}>Risk</th>
-                             <th style={{padding:10}}>Risk level</th>
-                             <th style={{padding:10}}>Suggested Mitigation</th>
-                             <th style={{padding:10}}>Status</th>
-                           </tr>
-                         </thead>
-                         <tbody>
-                           {dexModalProject?.key_risks && dexModalProject.key_risks.length > 0 ? (
-                             dexModalProject.key_risks.map((rk, idx) => (
-                               <tr key={idx}>
-                                 <td style={{padding:10}}>{rk}</td>
-                                 <td style={{padding:10}}>High</td>
-                                 <td style={{padding:10}}>-</td>
-                                 <td style={{padding:10}}>Open</td>
-                               </tr>
-                             ))
-                           ) : (
-                             <tr>
-                               <td style={{padding:10}} colSpan={4}>No risks available.</td>
-                             </tr>
-                           )}
-                         </tbody>
-                       </table>
-                     </div>
-                   </div>
-                 </div>
-               )}
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <button onClick={() => { console.log('Export DEX', dexModalProject?.project_id); }} aria-label="Export DEX report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <path d="M7 10l5 5 5-5" />
+                            <path d="M12 15V3" />
+                          </svg>
+                          <span style={{display:'inline-block',transform:'translateY(-1px)'}}>Export</span>
+                        </button>
+                        <button onClick={closeDexModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:'pointer'}}>Close</button>
+                       </div>
+                    </div>
+
+                    {/* modal body */}
+                    <div style={{padding:16,overflow:'auto'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                        <div style={{fontWeight:700,color:'#374151',fontSize:13}}>AI Risk Score: (AI) Red</div>
+                        <div style={{fontSize:12,color:'#6b7280'}}>Last analyzed: {dexModalProject?.last_tx || 'n/a'}</div>
+                      </div>
+
+                      <div style={{marginBottom:12,color:'#475569',fontSize:13}}>
+                        Explanation: (AI) Summary — the risks captured from the report are shown below. Use the actions to export or close.
+                      </div>
+
+                      <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                          <thead style={{background:'#f8fafc'}}>
+                            <tr style={{textAlign:'left'}}>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Risk</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:140}}>Risk level</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:120}}>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dexModalProject?.key_risks && dexModalProject.key_risks.length > 0 ? (
+                              dexModalProject.key_risks.map((rk, idx) => (
+                                <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827'}}>{rk}</td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}><span style={{display:'inline-block',padding:'6px 8px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155'}}>{generateMitigationForRisk(rk)}</td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}><span style={{display:'inline-block',padding:'6px 8px',borderRadius:6,background:'#ecfdf5',color:'#15803d',fontWeight:700,fontSize:12}}>Open</span></td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr><td style={{padding:16}} colSpan={4}>No risks available.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                    </div>
+
+                  </div>
+                </div>
+              )}
 
                <div style={{height:220,marginTop:12,background:'linear-gradient(180deg, rgba(11,18,40,.06), rgba(11,18,40,.00))'}} aria-hidden="true" />
             </>
@@ -630,7 +715,7 @@ export default function Dsai(){
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <input id="reportUpload" type="file" accept=".csv,.json,.ndjson,.xlsb" ref={uploadRef} onChange={handleFileUpload} style={{display:'none'}} />
                 <button id="btnUploadReport" onClick={onUploadClick} style={{padding:'8px 12px',borderRadius:8,background:'#fff',border:'1px solid #e6e6ef',cursor:'pointer',fontWeight:800}}>Upload report</button>
-                <div style={{fontSize:12,color:'#6b7280'}}>Accepted: .csv .json .ndjson .xlsb</div>
+                <div style={{fontSize:12,color:'#6b7280'}}>Accepted: .xlsb only</div>
               </div>
 
               {lastUpload && (
