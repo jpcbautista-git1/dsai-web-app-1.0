@@ -353,11 +353,14 @@ export default function Dsai(){
           </div>
 
           {/* Tabs */}
-          <div style={{display:'flex',gap:8,alignItems:'center',margin:'12px 0'}}>
-            <button onClick={() => setActiveTab('dsai')} style={{padding:'8px 12px',borderRadius:8,background: activeTab === 'dsai' ? '#eef2ff' : '#fff',border: activeTab === 'dsai' ? '1px solid #c7d2fe' : '1px solid #e6e6ef',fontWeight:800,cursor:'pointer'}}>DSAI</button>
-            <button onClick={() => setActiveTab('upload')} style={{padding:'8px 12px',borderRadius:8,background: activeTab === 'upload' ? '#eef2ff' : '#fff',border: activeTab === 'upload' ? '1px solid #c7d2fe' : '1px solid #e6e6ef',fontWeight:800,cursor:'pointer'}}>Upload</button>
-            <button onClick={() => setActiveTab('dex')} style={{padding:'8px 12px',borderRadius:8,background: activeTab === 'dex' ? '#eef2ff' : '#fff',border: activeTab === 'dex' ? '1px solid #c7d2fe' : '1px solid #e6e6ef',fontWeight:800,cursor:'pointer'}}>DEX</button>
+          <div style={{display:'flex',gap:8,alignItems:'center',margin:'12px 0',padding:8,background:'#f8fbff',borderRadius:12,border:'1px solid #e6eefb'}}>
+            <button onClick={() => setActiveTab('dsai')} style={{padding:'8px 14px',borderRadius:10,background: activeTab === 'dsai' ? '#fff' : 'transparent',border: activeTab === 'dsai' ? '1px solid #6366f1' : '1px solid transparent',boxShadow: activeTab === 'dsai' ? '0 6px 18px rgba(99,102,241,0.12)' : 'none',fontWeight:800,cursor:'pointer'}}>DSAI</button>
+            <button onClick={() => setActiveTab('upload')} style={{padding:'8px 14px',borderRadius:10,background: activeTab === 'upload' ? '#fff' : 'transparent',border: activeTab === 'upload' ? '1px solid #6366f1' : '1px solid transparent',boxShadow: activeTab === 'upload' ? '0 6px 18px rgba(99,102,241,0.12)' : 'none',fontWeight:800,cursor:'pointer'}}>Upload</button>
+            <button onClick={() => setActiveTab('dex')} style={{padding:'8px 14px',borderRadius:10,background: activeTab === 'dex' ? '#fff' : 'transparent',border: activeTab === 'dex' ? '1px solid #6366f1' : '1px solid transparent',boxShadow: activeTab === 'dex' ? '0 6px 18px rgba(99,102,241,0.12)' : 'none',fontWeight:800,cursor:'pointer'}}>DEX</button>
           </div>
+          
+          {/* subtle divider to separate tabs from content */}
+          <div style={{height:12}} />
 
           {/* DSAI tab content (KPIs + table) */}
           {activeTab === 'dsai' && (
