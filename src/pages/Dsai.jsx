@@ -3,7 +3,24 @@ import React, { useRef, useState } from 'react'
 export default function Dsai(){
   const uploadRef = useRef(null)
   const [parsedData, setParsedData] = useState(null)
-  const [projectSummaries, setProjectSummaries] = useState([])
+  const [projectSummaries, setProjectSummaries] = React.useState([
+    {
+      project_id: 'Globe ITSM',
+      project_name: 'Globe ITSM',
+      people: [ { person: 'Mark' }, { person: 'Carlo' } ],
+      total_hours: 24,
+      last_tx: '2h ago',
+      key_risks: [ 'Delayed staffing near phase start', 'Recent change variance detected' ]
+    },
+    {
+      project_id: 'ServiceMgmt-01',
+      project_name: 'Service Management',
+      people: [ { person: 'Alex' } ],
+      total_hours: 8,
+      last_tx: '1d ago',
+      key_risks: [ 'Scope creep', 'Late dependencies' ]
+    }
+  ])
   // loading modal state
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
@@ -41,10 +58,12 @@ export default function Dsai(){
 
   // update summaries when parsedData changes
   React.useEffect(() => {
-    if (!parsedData || !Array.isArray(parsedData)) {
-      setProjectSummaries([])
-      return
-    }
+    // If no parsedData yet, preserve the existing projectSummaries (seed/sample data)
+    if (parsedData == null) return
+
+    // If parsedData exists but isn't an array, do not change summaries
+    if (!Array.isArray(parsedData)) return
+
     setProjectSummaries(computeProjectSummaries(parsedData))
   }, [parsedData])
 
