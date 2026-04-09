@@ -588,13 +588,6 @@ export default function ProjectSample(){
                   </div>
                 </div>
 
-                {/* moved Clear button below the summary header as a right-aligned action */}
-                {dsaiOnboardSaved && (
-                  <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}>
-                    <button onClick={clearDsaiInline} style={{background:'#ef4444',color:'#fff',border:'none',padding:'8px 12px',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
-                  </div>
-                )}
-
                 <h3 style={{marginTop:24}}>Phases</h3>
                 <div style={{background:'#f9fafb',border:'1px solid #e7e9ee',borderRadius:10,padding:18,minHeight:120}}>
                   {phases.length === 0 && (
@@ -644,6 +637,13 @@ export default function ProjectSample(){
                     </tbody>
                   </table>
                 </div>
+
+                {/* moved Clear button to bottom of the summary view */}
+                {dsaiOnboardSaved && (
+                  <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}>
+                    <button onClick={clearDsaiInline} style={{background:'#ef4444',color:'#fff',border:'none',padding:'8px 12px',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
+                  </div>
+                )}
 
                 <style>{"#dsaiStatus{display:" + (dsaiOnboardSaved ? 'inline-flex' : 'none') + ";}"}</style>
               </div>
