@@ -7,6 +7,19 @@ export default function ProjectSample(){
   const [dsaiOnboardOpen, setDsaiOnboardOpen] = useState(false)
   const [dsaiData, setDsaiData] = useState({ projectName: 'Website Redesign', startDate: '', endDate: '' })
 
+  // Phases for modal
+  const [phases, setPhases] = useState([])
+  function addPhase(prefill = {}){
+    const id = 'phase-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8)
+    setPhases(s => ([...s, { id, name: prefill.name || '', desc: prefill.desc || '', start: prefill.start || '', end: prefill.end || '' }]))
+  }
+  function updatePhase(id, changes){
+    setPhases(s => s.map(p => p.id === id ? { ...p, ...changes } : p))
+  }
+  function removePhase(id){
+    setPhases(s => s.filter(p => p.id !== id))
+  }
+
   return (
     <main style={{padding:20, fontFamily:"'Plus Jakarta Sans', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", fontSize:14, color:'#374151'}}>
       <div style={{maxWidth:1200,margin:'0 auto'}}>
@@ -274,9 +287,45 @@ export default function ProjectSample(){
                 {/* Phases section (matching ids expected by legacy JS) */}
                 <section>
                   <h3>Phases</h3>
-                  <div className="section-actions top"><button className="btn btn-primary" id="btnAddPhaseTop" style={{background:'#6a0dad', color:'white'}}>+ Add Phase</button></div>
-                  <div id="phaseContainer"></div>
-                  <div className="section-actions bottom" id="phaseBottomActions" style={{display:'none'}}><button className="btn btn-primary" id="btnAddPhaseBottom" style={{background:'#6a0dad', color:'white'}}>+ Add Phase</button></div>
+
+                  {/* Top add-phase button: only show when no phases exist (legacy id btnAddPhaseTop) */}
+                  {phases.length === 0 && (
+                    <div className="section-actions top" style={{marginBottom:8}}>
+                      <button className="btn btn-primary" id="btnAddPhaseTop" onClick={()=>addPhase()} style={{background:'#6a0dad', color:'white', borderRadius:8, cursor:'pointer', padding:'8px 14px'}}>+ Add Phase</button>
+                    </div>
+                  )}
+
+                  <div id="phaseContainer">
+                    {phases.map(p => (
+                       <div key={p.id} className="phase-block" style={{background:'#f9fafb', border:'1px solid #e7e9ee', padding:14, borderRadius:10, marginTop:12}}>
+                         <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                           <label style={{fontWeight:700}}>Phase Name <span style={{color:'#ef4444'}}>*</span></label>
+                           <input className="phase-name" value={p.name} onChange={(e)=>updatePhase(p.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+
+                           <label style={{fontWeight:700}}>Short Description</label>
+                           <textarea className="phase-desc" value={p.desc} onChange={(e)=>updatePhase(p.id,{desc:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',minHeight:80}} />
+
+                           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                             <div>
+                               <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
+                               <input className="phase-start" type="date" value={p.start} onChange={(e)=>updatePhase(p.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                             </div>
+                             <div>
+                               <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
+                               <input className="phase-end" type="date" value={p.end} onChange={(e)=>updatePhase(p.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
+                             </div>
+                           </div>
+
+                           <div style={{marginTop:8}}>
+                             <button className="remove-phase btn" onClick={()=>removePhase(p.id)} style={{background:'#fff',border:'1px solid #e7e9ee',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
+                           </div>
+                         </div>
+                       </div>
+                    ))}
+                  </div>
+                  <div className="section-actions bottom" id="phaseBottomActions" style={{display: phases.length ? 'flex' : 'none', justifyContent: 'flex-end', paddingTop:12, paddingBottom:8}}>
+                    <button className="btn btn-primary" id="btnAddPhaseBottom" style={{background:'#6a0dad', color:'white', borderRadius:8, cursor:'pointer', padding:'8px 14px'}} onClick={()=>addPhase()}>+ Add Phase</button>
+                  </div>
                 </section>
 
                 <hr />
