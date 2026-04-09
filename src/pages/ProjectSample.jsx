@@ -82,13 +82,26 @@ export default function ProjectSample(){
   function handleSaveDsai(){
     const ok = validateModal()
     if(ok){
-      // persist later; for now just close
-      console.log('DSAI saved', { dsaiData, phases, resources })
+      // persist dsai payload (dsaiData + phases + resources) to localStorage and mark as onboarded
+      try{
+        const payload = { ...dsaiData, phases, resources, onboarded: true, savedAt: new Date().toISOString() }
+        localStorage.setItem('dsaiOnboard', JSON.stringify(payload))
+      }catch(e){ console.error('Failed to persist DSAI onboard', e) }
+
+      // update UI state to reflect saved/onboarded status
+      setDsaiOnboardSaved(true)
       setModalOpen(false)
-      // clear errors
+      setDsaiOnboardOpen(false)
+
+      // ensure dsaiData / phases / resources in state reflect saved payload (they already do) but set dsaiData explicitly
+      setDsaiData(s => ({ ...s, projectName: dsaiData.projectName || s.projectName, engagementName: dsaiData.engagementName || s.engagementName, engagementId: dsaiData.engagementId || s.engagementId, startDate: dsaiData.startDate || s.startDate, endDate: dsaiData.endDate || s.endDate }))
+
+      // clear validation errors
       setDsaiErrors({})
       setPhaseErrors({})
       setResourceErrors({})
+
+      console.log('DSAI saved', { dsaiData, phases, resources })
     } else {
       // focus first error
       const el = document.querySelector('.invalid') || document.querySelector('.remove-phase')
@@ -114,6 +127,141 @@ export default function ProjectSample(){
     setTimeout(()=>setDsaiInlineMessage(''),3000)
     console.log('Inline DSAI saved', dsaiData)
   }
+
+  // Simple rate card and helpers for summary cost calculation (used by saved summary)
+  const RATE_CARD = {
+    'Partner': { 'Philippines': 180.00, 'India': 180.00 },
+    'Executive Director': { 'Philippines': 152.00, 'India': 152.00 },
+    'Associate Director': { 'Philippines': 97.00, 'India': 80.00 },
+    'Senior Manager': { 'Philippines': 72.00, 'India': 58.00 },
+    'Manager': { 'Philippines': 49.00, 'India': 40.25 },
+    'Senior 3': { 'Philippines': 28.25, 'India': 24.25 },
+    'Senior 1-2': { 'Philippines': 26.00, 'India': 21.75 },
+    'Staff 2-3': { 'Philippines': 16.00, 'India': 13.00 },
+    'Staff 1': { 'Philippines': 13.50, 'India': 10.00 },
+    'Senior': { 'Philippines': 26.00, 'India': 21.75 },
+    'Mid': { 'Philippines': 18.00, 'India': 15.00 },
+    'Junior': { 'Philippines': 12.00, 'India': 10.00 }
+  }
+  const HOURS_PER_DAY = loc => (loc === 'India' ? 9 : (loc === 'Philippines' ? 8 : 8))
+  const USD = n => (isNaN(n) ? '$0.00' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }))
+  const formatDate = (isoOrDdMmYy) => {
+    if(!isoOrDdMmYy) return ''
+    // if already dd/mm/yyyy
+    if(/^[0-3]\d\/[0-1]\d\/[0-9]{4}$/.test(isoOrDdMmYy)) return isoOrDdMmYy
+    // try YYYY-MM-DD
+    const m = isoOrDdMmYy.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})/)
+    if(m) return `${m[3]}/${m[2]}/${m[1]}`
+    // fallback
+    return isoOrDdMmYy
+  }
+  function businessDaysBetween(startIso, endIso){
+    try{
+      // normalize YYYY-MM-DD or DD/MM/YYYY
+      const parse = s => {
+        if(!s) return null
+        if(/^[0-3]\d\/[0-1]\d\/[0-9]{4}$/.test(s)){
+          const [d,m,y] = s.split('/')
+          return new Date(`${y}-${m}-${d}`)
+        }
+        return new Date(s)
+      }
+      const a = parse(startIso)
+      const b = parse(endIso)
+      if(!a || !b || isNaN(a) || isNaN(b) || a > b) return 0
+      let count = 0; const cur = new Date(a)
+      while(cur <= b){ const day = cur.getDay(); if(day !== 0 && day !== 6) count++; cur.setDate(cur.getDate()+1) }
+      return count
+    }catch(e){ return 0 }
+  }
+
+  // Lightweight Gantt renderer (function form to avoid parsing ambiguity)
+  function Gantt({ phases, projectStart, projectEnd }){
+    const parseDateForGantt = s => {
+      if(!s) return null
+      if(/^[0-3]\d\/[0-1]\d\/[0-9]{4}$/.test(s)){
+        const [d,m,y]=s.split('/')
+        return new Date(`${y}-${m}-${d}`)
+      }
+      if(/^[0-9]{4}-[0-9]{2}-[0-9]{2}/.test(s)) return new Date(s)
+      const d = new Date(s); return isNaN(d) ? null : d
+    }
+    const daysDiff = (a,b) => { const A=parseDateForGantt(a), B=parseDateForGantt(b); if(!A||!B) return 0; return Math.ceil((B - A)/(1000*60*60*24)) }
+
+    const phaseStarts = phases.map(p=>parseDateForGantt(p.start)).filter(Boolean)
+    const phaseEnds = phases.map(p=>parseDateForGantt(p.end)).filter(Boolean)
+    const pStart = parseDateForGantt(projectStart) || (phaseStarts.length ? new Date(Math.min(...phaseStarts.map(d=>d.getTime()))) : null)
+    const pEnd = parseDateForGantt(projectEnd) || (phaseEnds.length ? new Date(Math.max(...phaseEnds.map(d=>d.getTime()))) : null)
+    if(!pStart || !pEnd || pStart > pEnd) return (<div style={{height:80,display:'flex',alignItems:'center',color:'#9ca3af'}}>Insufficient dates for Gantt.</div>)
+
+    const totalDays = daysDiff(pStart.toISOString().slice(0,10), pEnd.toISOString().slice(0,10)) || 1
+    const width = 1000
+    const dayWidth = width / totalDays
+    const height = Math.max(80, phases.length * 28 + 20)
+
+    return (
+      <div style={{overflow:'auto'}}>
+        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={Math.min(height,160)} preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="gBar" x1="0" x2="1"><stop offset="0" stopColor="#eef2ff" /><stop offset="1" stopColor="#f8f7ff" /></linearGradient>
+          </defs>
+          {phases.map((p, idx) => {
+            const ps = parseDateForGantt(p.start)
+            const pe = parseDateForGantt(p.end)
+            if(!ps || !pe) return null
+            const startOffset = Math.max(0, Math.round((ps - pStart)/(1000*60*60*24)))
+            const lenDays = Math.max(1, Math.round((pe - ps)/(1000*60*60*24)) + 1)
+            const x = startOffset * dayWidth
+            const w = Math.max(6, lenDays * dayWidth)
+            const y = 10 + idx*28
+            return (
+              <g key={p.id || idx}>
+                <rect x={x} y={y} rx={6} ry={6} width={w} height={18} fill="url(#gBar)" stroke="#e6e9f2" />
+                <text x={Math.min(x+8, Math.max(8, x+4))} y={y+13} fontSize={12} fill="#0f172a">{p.name || 'Phase'}</text>
+              </g>
+            )
+          })}
+          {(() => {
+            const today = new Date()
+            if(today < pStart || today > pEnd) return null
+            const off = Math.round((today - pStart)/(1000*60*60*24)) * dayWidth
+            return (<g><line x1={off} x2={off} y1={0} y2={height} stroke="#3b82f6" strokeWidth={2} strokeDasharray="2 4" /></g>)
+          })()}
+        </svg>
+      </div>
+    )
+  }
+
+  // Load saved onboard payload (if any) so summary renders immediately after Save
+  React.useEffect(()=>{
+    try{
+      const raw = localStorage.getItem('dsaiOnboard')
+      if(raw){
+        const payload = JSON.parse(raw)
+        if(payload){
+          setDsaiOnboardSaved(!!payload.onboarded || true)
+          // keep existing dsaiData values unless payload supplies them
+          setDsaiData(s => ({ ...s, projectName: payload.projectName || s.projectName || '', engagementName: payload.engagementName || s.engagementName || '', engagementId: payload.engagementId || s.engagementId || '', startDate: payload.startDate || payload.start || s.startDate || '', endDate: payload.endDate || payload.end || s.endDate || '' }))
+          if(Array.isArray(payload.phases) && payload.phases.length) setPhases(payload.phases)
+          if(Array.isArray(payload.resources) && payload.resources.length) setResources(payload.resources)
+          setDsaiOnboardOpen(false)
+        }
+      }
+    }catch(e){ /* ignore */ }
+  }, [])
+
+  // compute per-resource costs and estimated total for the summary view
+  const resourceCosts = resources.map(r => {
+    const start = r.start || r.startDate || ''
+    const end = r.end || r.endDate || ''
+    const days = businessDaysBetween(start, end) || 0
+    const hours = days * HOURS_PER_DAY(r.location)
+    const ratesForLevel = RATE_CARD[r.level] || {}
+    const rate = (ratesForLevel[r.location] || Object.values(ratesForLevel)[0]) || 26
+    const cost = (hours || 0) * (rate || 0)
+    return { ...r, days, hours, rate, cost }
+  })
+  const estimatedCost = resourceCosts.reduce((s, r) => s + (r.cost || 0), 0)
 
   return (
     <main style={{padding:20, fontFamily:"'Plus Jakarta Sans', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", fontSize:14, color:'#374151'}}>
@@ -365,8 +513,65 @@ export default function ProjectSample(){
               )}
 
               <div id="dsaiSummary" style={{display: dsaiOnboardOpen ? 'none' : 'block',marginTop:12}}>
-                {/* summary content and gantt mount will be injected by legacy JS */}
-                <div id="ganttMount" />
+                {/* Rendered summary: title, dates, phases box, resources table and estimated cost */}
+                <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+                  <div>
+                    <h1 style={{margin:0,fontSize:32,fontWeight:800,color:'#0f172a'}}>{dsaiData.projectName || 'Untitled Project'}</h1>
+                    <div style={{color:'#6b7280',marginTop:8,fontSize:14}}>Project Start Date: {formatDate(dsaiData.startDate)} • Project End Date: {formatDate(dsaiData.endDate)}</div>
+                  </div>
+                  <div style={{background:'#0f172a',color:'#fff',padding:'10px 16px',borderRadius:12,fontWeight:800,alignSelf:'flex-start'}}>{'Estimated Cost: ' + USD(estimatedCost)}</div>
+                </div>
+
+                <h3 style={{marginTop:24}}>Phases</h3>
+                <div style={{background:'#f9fafb',border:'1px solid #e7e9ee',borderRadius:10,padding:18,minHeight:120}}>
+                  {phases.length === 0 && (
+                    <div style={{color:'#9ca3af'}}>No phases defined.</div>
+                  )}
+
+                  {phases.length > 0 && phases.map(p => (
+                    <div key={p.id} style={{padding:'8px 0',borderBottom:'1px solid rgba(227,231,235,.6)'}}>
+                      <div style={{fontWeight:700}}>{p.name || 'Phase'}</div>
+                      <div style={{color:'#6b7280',marginTop:6}}>Start: {formatDate(p.start)} • End: {formatDate(p.end)}</div>
+                      {p.desc && <div style={{marginTop:8,color:'#374151'}}>{p.desc}</div>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Gantt chart for phases */}
+                <div style={{marginTop:24}}>
+                  <Gantt phases={phases} projectStart={dsaiData.startDate} projectEnd={dsaiData.endDate} />
+                </div>
+
+                <h3 style={{marginTop:24}}>Resources</h3>
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',background:'#fff'}}>
+                    <thead>
+                      <tr style={{textAlign:'left',borderBottom:'2px solid #eef2f7'}}>
+                        <th style={{padding:'12px 8px'}}>Resource Name</th>
+                        <th style={{padding:'12px 8px'}}>Level</th>
+                        <th style={{padding:'12px 8px'}}>Location</th>
+                        <th style={{padding:'12px 8px'}}>Start Date</th>
+                        <th style={{padding:'12px 8px'}}>End Date</th>
+                        <th style={{padding:'12px 8px'}}>Cost Rate</th>
+                        <th style={{padding:'12px 8px'}}>Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resourceCosts.map(r => (
+                        <tr key={r.id} style={{borderBottom:'1px solid #f3f4f6'}}>
+                          <td style={{padding:'12px 8px'}}>{r.name}</td>
+                          <td style={{padding:'12px 8px'}}>{r.level}</td>
+                          <td style={{padding:'12px 8px'}}>{r.location}</td>
+                          <td style={{padding:'12px 8px'}}>{formatDate(r.start)}</td>
+                          <td style={{padding:'12px 8px'}}>{formatDate(r.end)}</td>
+                          <td style={{padding:'12px 8px'}}>{USD(r.rate)}</td>
+                          <td style={{padding:'12px 8px'}}>{USD(r.cost)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
                 <style>{"#dsaiStatus{display:" + (dsaiOnboardSaved ? 'inline-flex' : 'none') + ";}"}</style>
               </div>
 
