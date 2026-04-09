@@ -27,9 +27,42 @@ export default function Dsai(){
   const [loadingProgress, setLoadingProgress] = useState(null) // 0-100 or null
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [lastUpload, setLastUpload] = useState(null)
+  const defaultLastSync = 'Apr 7, 2026 9:30 AM'
+  const [lastSync, setLastSync] = useState(defaultLastSync)
   const [activeTab, setActiveTab] = useState('dsai')
   const onUploadClick = () => uploadRef.current?.click()
 
+  // format date/time for display (e.g. "Apr 9, 2026 9:30 AM")
+  const formatDateTime = (d) => {
+    if (!d) return ''
+    const dt = (d instanceof Date) ? d : new Date(d)
+    const month = dt.toLocaleString('en-US', { month: 'short' })
+    const day = dt.getDate()
+    const year = dt.getFullYear()
+    let hours = dt.getHours()
+    const minutes = String(dt.getMinutes()).padStart(2, '0')
+    const ampm = hours >= 12 ? 'PM' : 'AM'
+    hours = hours % 12 || 12
+    return `${month} ${day}, ${year} ${hours}:${minutes} ${ampm}`
+  }
+
+  // Sync All action: update lastSync and show a brief loading message. In a real app this would call the backend.
+  const handleSyncAll = async () => {
+    try {
+      setLoading(true)
+      setLoadingMessage('Syncing all projects...')
+      // simulate short network/sync operation
+      await new Promise(r => setTimeout(r, 800))
+      setLastSync(formatDateTime(new Date()))
+      setLoadingMessage('All projects synced')
+      setTimeout(() => setLoading(false), 700)
+    } catch (err) {
+      console.error('Sync failed', err)
+      setLoadingMessage('Sync failed')
+      setTimeout(() => setLoading(false), 800)
+    }
+  }
+  
   // DEX modal state and helpers
   const [dexModalOpen, setDexModalOpen] = React.useState(false)
   const [dexModalProject, setDexModalProject] = React.useState(null)
@@ -426,7 +459,7 @@ export default function Dsai(){
             <div style={{display:'flex',gap:10,alignItems:'center'}}>
               {/* Upload controls moved to Upload tab (kept here only other action buttons) */}
               
-               <button style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',fontSize:12,fontWeight:700,background:'#fff',borderRadius:10,border:'1px solid #e3e6ef',cursor:'pointer'}}> 
+               <button onClick={handleSyncAll} style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',fontSize:12,fontWeight:700,background:'#fff',borderRadius:10,border:'1px solid #e3e6ef',cursor:'pointer'}}> 
                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 4a8 8 0 0 0-7.75 6H2l3 3 3-3H6.32A6 6 0 1 1 12 18c-1.66 0-3.18-.67-4.27-1.76l-1.42 1.42A7.96 7.96 0 0 0 12 20a8 8 0 0 0 0-16zm1 4h-2v6l5 3 1-1.73-4-2.27V8z"/></svg>
                  Sync All
                </button>
@@ -576,8 +609,8 @@ export default function Dsai(){
                 </div>
 
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999}}>Last 30 Days</div>
-                  <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999}}> <span style={{width:8,height:8,borderRadius:999,background:'#22c55e'}}></span> Last Sync: Apr 7, 9:30 AM</div>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999,fontSize:12}}>Last 30 Days</div>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999,fontSize:12}}> <span style={{width:8,height:8,borderRadius:999,background:'#22c55e'}}></span> Last Sync: {lastSync || 'n/a'}</div>
                 </div>
               </div>
 
