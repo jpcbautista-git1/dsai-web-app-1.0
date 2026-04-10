@@ -24,9 +24,9 @@ export default function ProjectSample(){
 
   // Resources for modal
   const [resources, setResources] = useState([])
-  function addResource(prefill = {}){
+  function addResource(prefill = {}, phaseId){
     const id = 'resource-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8)
-    setResources(s => ([...s, { id, name: prefill.name || '', level: prefill.level || 'Partner', location: prefill.location || 'Philippines', start: prefill.start || '', end: prefill.end || '' }]))
+    setResources(s => ([...s, { id, phaseId: prefill.phaseId || phaseId || '', name: prefill.name || '', level: prefill.level || 'Partner', location: prefill.location || 'Philippines', start: prefill.start || '', end: prefill.end || '' }]))
   }
   function updateResource(id, changes){
     setResources(s => s.map(r => r.id === id ? { ...r, ...changes } : r))
@@ -49,7 +49,7 @@ export default function ProjectSample(){
     // validate DSAI header fields
     if(!dsaiData.projectName || !dsaiData.projectName.trim()){ dErrors.projectName = 'Required'; valid = false }
     if(!dsaiData.engagementName || !dsaiData.engagementName.trim()){ dErrors.engagementName = 'Required'; valid = false }
-    if(!dsaiData.engagementId || !dsaiData.engagementId.trim()){ dErrors.engagementId = 'Required'; valid = false }
+    // engagementId validation removed (no longer required)
 
     // validate phases
     phases.forEach(p => {
@@ -64,9 +64,9 @@ export default function ProjectSample(){
     // validate resources
     resources.forEach(r => {
       const errs = {}
-      if(!r.name || !r.name.trim()) { errs.name = 'Required'; valid = false }
-      // GPN required
-      if(!r.gpn || !String(r.gpn).trim()) { errs.gpn = 'Required'; valid = false }
+      // resource name and gpn are no longer required
+      // make Level required
+      if(!r.level || !String(r.level).trim()) { errs.level = 'Required'; valid = false }
       if(!r.start) { errs.start = 'Required'; valid = false }
       if(!r.end) { errs.end = 'Required'; valid = false }
       if(r.start && r.end && r.start > r.end) { errs.order = 'Start must be before End'; valid = false }
@@ -113,7 +113,7 @@ export default function ProjectSample(){
     const errs = {}
     if(!dsaiData.projectName || !dsaiData.projectName.trim()){ errs.projectName = 'Required' }
     if(!dsaiData.engagementName || !dsaiData.engagementName.trim()){ errs.engagementName = 'Required' }
-    if(!dsaiData.engagementId || !dsaiData.engagementId.trim()){ errs.engagementId = 'Required' }
+    // engagementId is no longer required for inline save
     setDsaiErrors(errs)
     if(Object.keys(errs).length){
       const el = document.querySelector('.invalid')
@@ -679,8 +679,8 @@ export default function ProjectSample(){
                       </div>
 
                       <div>
-                        <label htmlFor="modalEngagementId" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement ID <span style={{color:'#ef4444'}}>*</span></label>
-                        <input id="modalEngagementId" className={dsaiErrors.engagementId ? 'invalid' : ''} type="text" value={dsaiData.engagementId} onChange={(e)=>setDsaiData(s=>({...s,engagementId:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border: dsaiErrors.engagementId ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                        <label htmlFor="modalEngagementId" style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6,display:'block'}}>Engagement ID</label>
+                        <input id="modalEngagementId" type="text" value={dsaiData.engagementId} onChange={(e)=>setDsaiData(s=>({...s,engagementId:e.target.value}))} style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}} />
                       </div>
                     </div>
                   </div>
@@ -718,6 +718,59 @@ export default function ProjectSample(){
                              </div>
                            </div>
 
+                           {/* Resources for this phase - embedded inside the phase block */}
+                           <div style={{marginTop:12,background:'#fff',border:'1px solid #eef2ff',padding:12,borderRadius:8}}>
+                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                               <div style={{fontWeight:700}}>Resources for this phase</div>
+                               <div>
+                                 <button className="btn btn-secondary" onClick={()=>addResource({}, p.id)} style={{background:'#6a0dad',color:'#fff',padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer'}}>+ Add Resource</button>
+                               </div>
+                             </div>
+
+                             <div>
+                               {resources.filter(r=>r.phaseId === p.id).length === 0 && (
+                                 <div style={{color:'#9ca3af'}}>No resources for this phase.</div>
+                               )}
+
+                               {resources.filter(r=>r.phaseId === p.id).map(r => (
+                                 <div key={r.id} style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,alignItems:'start',marginBottom:12}}>
+                                   <div>
+                                     <label style={{fontWeight:700}}>Resource Name</label>
+                                     <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{padding:8,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff',width:'100%'}} />
+
+                                     <label style={{fontWeight:700,marginTop:8}}>GPN</label>
+                                     <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{padding:8,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff',width:'100%'}} />
+                                   </div>
+                                   <div>
+                                     <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
+                                     <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff',width:'100%'}}>
+                                       <option>Partner</option>
+                                       <option>Executive Director</option>
+                                       <option>Associate Director</option>
+                                       <option>Senior Manager</option>
+                                       <option>Manager</option>
+                                       <option>Senior 3</option>
+                                       <option>Senior 1-2</option>
+                                       <option>Staff 2-3</option>
+                                       <option>Staff 1</option>
+                                     </select>
+
+                                     <label style={{fontWeight:700,marginTop:8}}>Location</label>
+                                     <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{padding:8,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',width:'100%'}}>
+                                       <option>Philippines</option>
+                                       <option>India</option>
+                                       <option>Australia</option>
+                                     </select>
+
+                                     <div style={{display:'flex',gap:8,marginTop:8}}>
+                                       <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
+                                     </div>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+
                            <div style={{marginTop:8}}>
                              <button className="remove-phase btn" onClick={()=>removePhase(p.id)} style={{background:'#fff',border:'1px solid #e7e9ee',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
                            </div>
@@ -731,82 +784,11 @@ export default function ProjectSample(){
                   </div>
                 </section>
 
-                <hr />
+              </div>
 
-                {/* Resources section (matching ids expected by legacy JS) */}
-                <section>
-                  <h3>Resources</h3>
-
-                  {/* Top add-resource button: only show when no resources exist (legacy id btnAddResourceTop) */}
-                  {resources.length === 0 && (
-                    <div className="section-actions top" style={{marginBottom:8}}>
-                      <button className="btn btn-primary" id="btnAddResourceTop" onClick={()=>addResource()} style={{background:'#6a0dad', color:'white', borderRadius:8, cursor:'pointer', padding:'8px 14px'}}>+ Add Resource</button>
-                    </div>
-                  )}
-
-                  <div id="resourceContainer">
-                    {resources.map(r => (
-                      <div key={r.id} className="resource-block" style={{background:'#f9fafb', border:'1px solid #e7e9ee', padding:14, borderRadius:10, marginTop:12}}>
-                        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                          <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
-                          <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-
-                          {/* GPN field (new) */}
-                          <label style={{fontWeight:700}}>GPN <span style={{color:'#ef4444'}}>*</span></label>
-                          <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{padding:10,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-
-                          <label style={{fontWeight:700}}>Level</label>
-                          <select className="resource-level" value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
-                            <option>Partner</option>
-                            <option>Executive Director</option>
-                            <option>Associate Director</option>
-                            <option>Senior Manager</option>
-                            <option>Manager</option>
-                            <option>Senior 3</option>
-                            <option>Senior 1-2</option>
-                            <option>Staff 2-3</option>
-                            <option>Staff 1</option>
-                          </select>
-
-                          <label style={{fontWeight:700}}>Location</label>
-                          <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{padding:10,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
-                            <option>Philippines</option>
-                            <option>India</option>
-                            <option>Australia</option>
-                          </select>
-
-                          {/* Start / End dates for resource (two-column grid) */}
-                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                            <div>
-                              <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                              <input className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-                            </div>
-                            <div>
-                              <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                              <input className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-                            </div>
-                          </div>
-
-                          <div style={{marginTop:8}}>
-                            <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                  </div>
-
-                  {/* Bottom add-resource button: shown when at least one resource exists */}
-                  <div className="section-actions bottom" id="resourceBottomActions" style={{display: resources.length ? 'flex' : 'none', justifyContent:'flex-end', paddingTop:12, paddingBottom:8}}>
-                    <button className="btn btn-primary" id="btnAddResourceBottom" style={{background:'#6a0dad', color:'white', borderRadius:8, cursor:'pointer', padding:'8px 14px'}} onClick={()=>addResource()}>+ Add Resource</button>
-                  </div>
-                </section>
-
-                <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
-                  <button onClick={()=>setModalOpen(false)} style={{padding:'8px 12px',borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',cursor:'pointer'}}>Cancel</button>
-                  <button onClick={handleSaveDsai} id="submitDsai" style={{padding:'8px 12px',borderRadius:8,background:'#ffd200',border:'none',fontWeight:800,cursor:'pointer'}}>Save</button>
-                </div>
-
+              <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
+                <button onClick={()=>setModalOpen(false)} style={{padding:'8px 12px',borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',cursor:'pointer'}}>Cancel</button>
+                <button onClick={handleSaveDsai} id="submitDsai" style={{padding:'8px 12px',borderRadius:8,background:'#ffd200',border:'none',fontWeight:800,cursor:'pointer'}}>Save</button>
               </div>
             </div>
           </div>
