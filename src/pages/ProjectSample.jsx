@@ -229,13 +229,22 @@ export default function ProjectSample(){
     const legendWidth = 200
     const rightPad = 20
     const innerWidth = Math.max(320, width - legendWidth - rightPad)
-    const weekWidth = innerWidth / totalWeeks
-    const rowHeight = 44
 
+    // spacing between weeks (gutter)
+    const weekGap = 6
+    const minWeekWidth = 48 // minimum pixels per week to avoid compressed weeks
+    // compute the width required to keep weeks at least minWeekWidth; allow expansion if container is wide
+    const minTimelineContentWidth = Math.max(320, minWeekWidth * totalWeeks + (totalWeeks - 1) * weekGap)
+    const timelineContentWidth = Math.max(innerWidth, minTimelineContentWidth)
+    const effectiveWeekWidth = Math.max(minWeekWidth, Math.round((timelineContentWidth - (totalWeeks - 1) * weekGap) / totalWeeks))
+    const weekStride = effectiveWeekWidth + weekGap
+
+    const rowHeight = 44
     const monthHeaderHeight = 28
     const weekHeaderHeight = 18
     const paddingTop = monthHeaderHeight + weekHeaderHeight + 8
     const svgHeight = paddingTop + phases.length * rowHeight + 40
+    const svgWidth = timelineContentWidth + 40
 
     const palette = ['#2b6cb0','#16a34a','#f59e0b','#7c3aed','#ef4444','#06b6d4']
 
@@ -266,8 +275,8 @@ export default function ProjectSample(){
     return (
       <div ref={containerRef} style={{border:'1px solid #e6e9f2',borderRadius:10,background:'#fff',padding:12}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-          <div style={{fontWeight:800,color:'#0f172a'}}>Project Plan</div>
-          <div style={{fontSize:12,color:'#6b7280'}}>{formatDate(pStart.toISOString().slice(0,10))} — {formatDate(pEnd.toISOString().slice(0,10))}</div>
+          <div style={{fontWeight:800,color:'#0f172a',fontSize:16}}>Project Plan</div>
+          <div style={{fontSize:13,color:'#374151',fontWeight:600}}>{formatDate(pStart.toISOString().slice(0,10))} — {formatDate(pEnd.toISOString().slice(0,10))}</div>
         </div>
 
         <div style={{display:'flex',gap:12}}>
@@ -276,8 +285,8 @@ export default function ProjectSample(){
             <div style={{background:'#fff',borderRadius:8,padding:'8px 12px',border:'1px solid #eef2f7'}}>
               {phases.map((p, i) => (
                 <div key={p.id || i} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 0'}}>
-                  <span style={{width:12,height:12,background: palette[i % palette.length],borderRadius:3,display:'inline-block'}} />
-                  <div style={{fontSize:13,fontWeight:700,color:'#0f172a'}}>{p.name || `Phase ${i+1}`}</div>
+                  <span style={{width:14,height:14,background: palette[i % palette.length],borderRadius:4,display:'inline-block'}} />
+                  <div style={{fontSize:14,fontWeight:800,color:'#0f172a'}}>{p.name || `Phase ${i+1}`}</div>
                 </div>
               ))}
             </div>
@@ -285,35 +294,35 @@ export default function ProjectSample(){
 
           {/* timeline svg */}
           <div style={{flex:1,overflow:'auto'}}>
-            <svg viewBox={`0 0 ${innerWidth + 40} ${svgHeight}`} width="100%" height={svgHeight} preserveAspectRatio="xMinYMin meet">
+            <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} width={svgWidth} height={svgHeight} preserveAspectRatio="xMinYMin meet" style={{display:'block'}}>
               <g transform={`translate(0,0)`}>
 
                 {/* month header */}
                 {months.map((m) => {
-                  const x = Math.round(m.startIdx * weekWidth)
-                  const w = Math.max(1, Math.round((m.endIdx - m.startIdx + 1) * weekWidth))
+                  const x = Math.round(m.startIdx * weekStride)
+                  const w = Math.max(1, Math.round((m.endIdx - m.startIdx + 1) * weekStride - weekGap))
                   return (
                     <g key={m.key}>
                       <rect x={x} y={6} width={w} height={monthHeaderHeight} fill="#fafafa" stroke="#eef2f7" />
-                      <text x={x + w/2} y={6 + monthHeaderHeight/2 + 5} fontSize={12} fill="#374151" textAnchor="middle">{formatMonth(m.date)}</text>
+                      <text x={x + w/2} y={6 + monthHeaderHeight/2 + 5} fontSize={13} fontWeight={700} fill="#0f172a" textAnchor="middle">{formatMonth(m.date)}</text>
                     </g>
                   )
                 })}
 
                 {/* week labels */}
                 {weeks.map((w) => {
-                  const x = Math.round(w.index * weekWidth)
+                  const x = Math.round(w.index * weekStride)
                   return (
                     <g key={`w-${w.index}`}>
                       <line x1={x} x2={x} y1={monthHeaderHeight + 8} y2={monthHeaderHeight + 8 + (weekHeaderHeight + phases.length * rowHeight)} stroke="#eef2f7" />
-                      <text x={x + weekWidth/2} y={monthHeaderHeight + 8 + weekHeaderHeight - 2} fontSize={11} fill="#6b7280" textAnchor="middle">{formatWeekLabel(w)}</text>
+                      <text x={x + effectiveWeekWidth/2} y={monthHeaderHeight + 8 + weekHeaderHeight - 2} fontSize={12} fontWeight={700} fill="#374151" textAnchor="middle">{formatWeekLabel(w)}</text>
                     </g>
                   )
                 })}
 
                 {/* daily subtle gridlines */}
                 {Array.from({length: totalWeeks}).map((_, wi) => Array.from({length:7}).map((__, di) => {
-                  const x = Math.round((wi*7 + di) * (weekWidth/7))
+                  const x = Math.round(wi * weekStride + di * (effectiveWeekWidth / 7) + wi * weekGap)
                   return <line key={`d-${wi}-${di}`} x1={x} x2={x} y1={monthHeaderHeight + weekHeaderHeight} y2={monthHeaderHeight + weekHeaderHeight + phases.length * rowHeight} stroke="#f8fafc" />
                 }))}
 
@@ -325,7 +334,7 @@ export default function ProjectSample(){
                   const rowY = monthHeaderHeight + weekHeaderHeight + idx * rowHeight
                   if(!ps || !pe) return (
                     <g key={p.id || idx}>
-                      <rect x={0} y={rowY} width={innerWidth} height={rowHeight} fill={idx % 2 ? 'rgba(15,23,42,0.02)' : 'transparent'} />
+                      <rect x={0} y={rowY} width={timelineContentWidth} height={rowHeight} fill={idx % 2 ? 'rgba(15,23,42,0.02)' : 'transparent'} />
                     </g>
                   )
 
@@ -333,18 +342,18 @@ export default function ProjectSample(){
                   const endDays = clamp(Math.round((pe - pStart)/(1000*60*60*24)), 0, totalDays)
                   const startWeek = Math.floor(startDays / 7)
                   const lenWeeks = Math.max(1, Math.ceil((endDays - startDays + 1) / 7))
-                  const x = startWeek * weekWidth
-                  const w = Math.max(8, lenWeeks * weekWidth)
+                  const x = startWeek * weekStride
+                  const w = Math.max(8, lenWeeks * weekStride - weekGap)
                   const color = palette[idx % palette.length]
                   const resourcesCount = getResourceCount(p.id)
 
                   return (
                     <g key={p.id || idx} onMouseEnter={()=>setHover({idx,x,y,w,p,resourcesCount})} onMouseLeave={()=>setHover(null)}>
                       {/* row bg */}
-                      <rect x={0} y={rowY} width={innerWidth} height={rowHeight} fill={idx % 2 ? 'rgba(15,23,42,0.02)' : 'transparent'} />
+                      <rect x={0} y={rowY} width={timelineContentWidth} height={rowHeight} fill={idx % 2 ? 'rgba(15,23,42,0.02)' : 'transparent'} />
 
                       {/* shadow */}
-                      <rect x={x+3} y={y+6} rx={8} ry={8} width={Math.max(6,w-4)} height={14} fill="rgba(0,0,0,0.06)" />
+                      <rect x={x+4} y={y+6} rx={8} ry={8} width={Math.max(6,w-6)} height={14} fill="rgba(0,0,0,0.06)" />
 
                       {/* outer muted bar */}
                       <rect x={x} y={y} rx={8} ry={8} width={w} height={20} fill={color} opacity={0.12} stroke={color} />
@@ -352,14 +361,14 @@ export default function ProjectSample(){
                       <rect x={x+2} y={y+2} rx={6} ry={6} width={Math.max(6,w-4)} height={16} fill={color} />
 
                       {/* label */}
-                      <text x={x + 12} y={y + 12} fontSize={12} fill="#fff" style={{pointerEvents:'none'}}>
+                      <text x={x + 14} y={y + 12} fontSize={13} fontWeight={800} fill="#ffffff" style={{pointerEvents:'none'}}>
                         {p.name}
                       </text>
 
                       {/* badge */}
                       <g>
-                        <rect x={x + Math.max(12, w - 110)} y={y + 3} rx={6} ry={6} width={Math.min(90, Math.max(48,w - 24))} height={12} fill="rgba(255,255,255,0.12)" />
-                        <text x={x + Math.max(18, w - 100)} y={y + 11} fontSize={11} fill="#fff">{Math.max(1, lenWeeks)}w • {resourcesCount} res</text>
+                        <rect x={x + Math.max(14, w - 120)} y={y + 3} rx={6} ry={6} width={Math.min(110, Math.max(56,w - 28))} height={12} fill="rgba(255,255,255,0.12)" />
+                        <text x={x + Math.max(20, w - 108)} y={y + 11} fontSize={12} fontWeight={700} fill="#fff">{Math.max(1, lenWeeks)}w • {resourcesCount} res</text>
                       </g>
 
                       {/* dashed dependency to next phase (if dates present) */}
@@ -370,7 +379,7 @@ export default function ProjectSample(){
                         if(!nStart || !ps || !pe) return null
                         const endX = x + w
                         const nextStartDays = clamp(Math.round((nStart - pStart)/(1000*60*60*24)), 0, totalDays)
-                        const nextX = Math.floor(nextStartDays/7) * weekWidth
+                        const nextX = Math.floor(nextStartDays/7) * weekStride
                         const midX = endX + (nextX - endX)/2
                         return (
                           <g>
@@ -389,11 +398,11 @@ export default function ProjectSample(){
                 {(() => {
                   const today = new Date(); if(today < pStart || today > pEnd) return null
                   const offDays = Math.round((today - pStart)/(1000*60*60*24))
-                  const off = (offDays / 7) * weekWidth
+                  const off = (offDays / 7) * weekStride
                   return (
                     <g>
                       <line x1={off} x2={off} y1={monthHeaderHeight + weekHeaderHeight} y2={monthHeaderHeight + weekHeaderHeight + phases.length*rowHeight} stroke="#ef4444" strokeWidth={2} strokeDasharray="4 3" />
-                      <text x={off+6} y={monthHeaderHeight + weekHeaderHeight - 6} fontSize={11} fill="#ef4444">Today</text>
+                      <text x={off+6} y={monthHeaderHeight + weekHeaderHeight - 6} fontSize={12} fontWeight={700} fill="#ef4444">Today</text>
                     </g>
                   )
                 })()}
@@ -402,7 +411,7 @@ export default function ProjectSample(){
                 {hover && (
                   <g>
                     <rect x={hover.x + hover.w + 8} y={hover.y} rx={6} ry={6} width={260} height={80} fill="#0f172a" opacity={0.95} />
-                    <text x={hover.x + hover.w + 16} y={hover.y + 20} fontSize={13} fill="#fff">{hover.p.name}</text>
+                    <text x={hover.x + hover.w + 16} y={hover.y + 20} fontSize={13} fontWeight={700} fill="#fff">{hover.p.name}</text>
                     <text x={hover.x + hover.w + 16} y={hover.y + 38} fontSize={12} fill="#d1d5db">{formatDate(hover.p.start)} → {formatDate(hover.p.end)}</text>
                     <text x={hover.x + hover.w + 16} y={hover.y + 54} fontSize={12} fill="#d1d5db">Duration: {Math.max(1, Math.ceil((daysBetween(parseDateForGantt(hover.p.start), parseDateForGantt(hover.p.end))+1)/7))} weeks</text>
                     <text x={hover.x + hover.w + 16} y={hover.y + 70} fontSize={12} fill="#d1d5db">Resources: {hover.resourcesCount}</text>
@@ -851,65 +860,64 @@ export default function ProjectSample(){
                              </div>
 
                              <div>
-                               {resources.filter(r=>r.phaseId === p.id).length === 0 && (
+                               {resources.filter(r=>r.phaseId === p.id).length === 0 ? (
                                  <div style={{color:'#9ca3af'}}>No resources for this phase.</div>
-                               )}
-
-                               {resources.filter(r=>r.phaseId === p.id).map(r => (
-                                 <div key={r.id} style={{background:'#fff',padding:12,borderRadius:8,marginBottom:12}}>
-                                   <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                     <div>
-                                       <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
-                                       <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-                                     </div>
-
-                                     <div>
-                                       <label style={{fontWeight:700}}>GPN</label>
-                                       <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-                                     </div>
-
-                                     <div>
-                                       <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
-                                       <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}}>
-                                         <option>Partner</option>
-                                         <option>Executive Director</option>
-                                         <option>Associate Director</option>
-                                         <option>Senior Manager</option>
-                                         <option>Manager</option>
-                                         <option>Senior 3</option>
-                                         <option>Senior 1-2</option>
-                                         <option>Staff 2-3</option>
-                                         <option>Staff 1</option>
-                                       </select>
-                                     </div>
-
-                                     <div>
-                                       <label style={{fontWeight:700}}>Location</label>
-                                       <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
-                                         <option>Philippines</option>
-                                         <option>India</option>
-                                         <option>Australia</option>
-                                       </select>
-                                     </div>
-
-                                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                               ) : (
+                                 resources.filter(r=>r.phaseId === p.id).map(r => (
+                                   <div key={r.id} style={{background:'#fff',padding:12,borderRadius:8,marginBottom:12}}>
+                                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
                                        <div>
-                                         <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                                         <input id={`resource-start-${r.id}`} className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} min={todayIso} onClick={()=>{ const el = document.getElementById(`resource-start-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                         <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
+                                         <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                                        </div>
-                                       <div>
-                                         <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                                         <input id={`resource-end-${r.id}`} className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={r.start || todayIso} onClick={()=>{ if(!r.start) return; const el = document.getElementById(`resource-end-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} readOnly={!r.start} title={!r.start ? 'Set start date first' : ''} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background: !r.start ? '#f3f4f6' : '#fff'}} />
-                                       </div>
-                                     </div>
 
-                                     <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
-                                       <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
+                                       <div>
+                                         <label style={{fontWeight:700}}>GPN</label>
+                                         <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                       </div>
+
+                                       <div>
+                                         <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
+                                         <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}}>
+                                           <option>Partner</option>
+                                           <option>Executive Director</option>
+                                           <option>Associate Director</option>
+                                           <option>Senior Manager</option>
+                                           <option>Manager</option>
+                                           <option>Senior 3</option>
+                                           <option>Senior 1-2</option>
+                                           <option>Staff 2-3</option>
+                                           <option>Staff 1</option>
+                                         </select>
+                                       </div>
+
+                                       <div>
+                                         <label style={{fontWeight:700}}>Location</label>
+                                         <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
+                                           <option>Philippines</option>
+                                           <option>India</option>
+                                           <option>Australia</option>
+                                         </select>
+                                       </div>
+
+                                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                                         <div>
+                                           <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
+                                           <input id={`resource-start-${r.id}`} className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} min={todayIso} onClick={()=>{ const el = document.getElementById(`resource-start-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                         </div>
+                                         <div>
+                                           <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
+                                           <input id={`resource-end-${r.id}`} className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={r.start || todayIso} onClick={()=>{ if(!r.start) return; const el = document.getElementById(`resource-end-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} readOnly={!r.start} title={!r.start ? 'Set start date first' : ''} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background: !r.start ? '#f3f4f6' : '#fff'}} />
+                                         </div>
+                                       </div>
+
+                                       <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
+                                         <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
+                                       </div>
                                      </div>
                                    </div>
-                                 </div>
-                               ))}
-
+                                 ))
+                               )}
                              </div>
                            </div>
 
