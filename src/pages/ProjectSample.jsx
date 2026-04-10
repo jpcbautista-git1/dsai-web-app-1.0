@@ -733,36 +733,49 @@ export default function ProjectSample(){
                                )}
 
                                {resources.filter(r=>r.phaseId === p.id).map(r => (
-                                 <div key={r.id} style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,alignItems:'start',marginBottom:12}}>
-                                   <div>
-                                     <label style={{fontWeight:700}}>Resource Name</label>
-                                     <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{padding:8,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff',width:'100%'}} />
+                                 <div key={r.id} style={{background:'#fff',padding:12,borderRadius:8,marginBottom:12}}>
+                                   <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                     <div>
+                                       <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
+                                       <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                     </div>
 
-                                     <label style={{fontWeight:700,marginTop:8}}>GPN</label>
-                                     <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{padding:8,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff',width:'100%'}} />
-                                   </div>
-                                   <div>
-                                     <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
-                                     <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff',width:'100%'}}>
-                                       <option>Partner</option>
-                                       <option>Executive Director</option>
-                                       <option>Associate Director</option>
-                                       <option>Senior Manager</option>
-                                       <option>Manager</option>
-                                       <option>Senior 3</option>
-                                       <option>Senior 1-2</option>
-                                       <option>Staff 2-3</option>
-                                       <option>Staff 1</option>
-                                     </select>
+                                     <div>
+                                       <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
+                                       <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}}>
+                                         <option>Partner</option>
+                                         <option>Executive Director</option>
+                                         <option>Associate Director</option>
+                                         <option>Senior Manager</option>
+                                         <option>Manager</option>
+                                         <option>Senior 3</option>
+                                         <option>Senior 1-2</option>
+                                         <option>Staff 2-3</option>
+                                         <option>Staff 1</option>
+                                       </select>
+                                     </div>
 
-                                     <label style={{fontWeight:700,marginTop:8}}>Location</label>
-                                     <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{padding:8,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff',width:'100%'}}>
-                                       <option>Philippines</option>
-                                       <option>India</option>
-                                       <option>Australia</option>
-                                     </select>
+                                     <div>
+                                       <label style={{fontWeight:700}}>Location</label>
+                                       <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
+                                         <option>Philippines</option>
+                                         <option>India</option>
+                                         <option>Australia</option>
+                                       </select>
+                                     </div>
 
-                                     <div style={{display:'flex',gap:8,marginTop:8}}>
+                                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                                       <div>
+                                         <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
+                                         <input className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} min={new Date().toISOString().slice(0,10)} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                       </div>
+                                       <div>
+                                         <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
+                                         <input className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={new Date().toISOString().slice(0,10)} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                       </div>
+                                     </div>
+
+                                     <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
                                        <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
                                      </div>
                                    </div>
