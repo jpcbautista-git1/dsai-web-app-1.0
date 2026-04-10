@@ -697,9 +697,9 @@ export default function ProjectSample(){
                     </div>
                   )}
 
-                  <div id="phaseContainer">
+                  <div id="phaseContainer" style={{background:'#f3f4f6',padding:12,borderRadius:10}}>
                     {phases.map(p => (
-                       <div key={p.id} className="phase-block" style={{background:'#f9fafb', border:'1px solid #e7e9ee', padding:14, borderRadius:10, marginTop:12}}>
+                       <div key={p.id} className="phase-block" style={{background:'#f3f4f6', border:'1px solid #e7e9ee', padding:14, borderRadius:10, marginTop:12}}>
                          <div style={{display:'flex',flexDirection:'column',gap:8}}>
                            <label style={{fontWeight:700}}>Phase Name <span style={{color:'#ef4444'}}>*</span></label>
                            <input className={"phase-name " + (phaseErrors[p.id]?.name ? 'invalid' : '')} value={p.name} onChange={(e)=>updatePhase(p.id,{name:e.target.value})} style={{padding:10,borderRadius:8,border: phaseErrors[p.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
