@@ -741,6 +741,11 @@ export default function ProjectSample(){
                                      </div>
 
                                      <div>
+                                       <label style={{fontWeight:700}}>GPN</label>
+                                       <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                     </div>
+
+                                     <div>
                                        <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
                                        <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}}>
                                          <option>Partner</option>
@@ -781,6 +786,7 @@ export default function ProjectSample(){
                                    </div>
                                  </div>
                                ))}
+
                              </div>
                            </div>
 
