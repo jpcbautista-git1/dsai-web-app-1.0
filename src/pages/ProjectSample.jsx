@@ -8,6 +8,7 @@ export default function ProjectSample(){
   const [dsaiData, setDsaiData] = useState({ projectName: 'Website Redesign', engagementName: '', engagementId: '', startDate: '', endDate: '' })
   const [dsaiInlineMessage, setDsaiInlineMessage] = useState('')
   const [dsaiOnboardSaved, setDsaiOnboardSaved] = useState(false)
+  const todayIso = new Date().toISOString().slice(0,10)
 
   // Phases for modal
   const [phases, setPhases] = useState([])
@@ -548,14 +549,14 @@ export default function ProjectSample(){
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Start Date</div>
                         <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }}>
-                          <input id="inlineStartDate" type="date" value={dsaiData.startDate} onChange={(e)=>setDsaiData(s=>({...s,startDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
+                          <input id="inlineStartDate" type="date" min={todayIso} value={dsaiData.startDate} onChange={(e)=>setDsaiData(s=>({...s,startDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
                         </div>
                       </div>
 
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project End Date</div>
                         <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }}>
-                          <input id="inlineEndDate" type="date" value={dsaiData.endDate} onChange={(e)=>setDsaiData(s=>({...s,endDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
+                          <input id="inlineEndDate" type="date" min={todayIso} value={dsaiData.endDate} onChange={(e)=>setDsaiData(s=>({...s,endDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
                         </div>
                       </div>
                     </div>
@@ -710,11 +711,11 @@ export default function ProjectSample(){
                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                              <div>
                                <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                               <input className={"phase-start " + (phaseErrors[p.id]?.start || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" value={p.start} onChange={(e)=>updatePhase(p.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.start || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                               <input className={"phase-start " + (phaseErrors[p.id]?.start || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" min={todayIso} value={p.start} onChange={(e)=>updatePhase(p.id,{start:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.start || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                              </div>
                              <div>
                                <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                               <input className={"phase-end " + (phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" value={p.end} onChange={(e)=>updatePhase(p.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                               <input className={"phase-end " + (phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" min={todayIso} value={p.end} onChange={(e)=>updatePhase(p.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                              </div>
                            </div>
 
@@ -772,11 +773,11 @@ export default function ProjectSample(){
                                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                                        <div>
                                          <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                                         <input className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} min={new Date().toISOString().slice(0,10)} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                         <input className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} min={todayIso} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                                        </div>
                                        <div>
                                          <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                                         <input className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={new Date().toISOString().slice(0,10)} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                         <input className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={todayIso} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
                                        </div>
                                      </div>
 
