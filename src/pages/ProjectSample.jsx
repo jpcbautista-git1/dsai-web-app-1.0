@@ -211,26 +211,49 @@ export default function ProjectSample(){
       if(/^[0-9]{4}-[0-9]{2}-[0-9]{2}/.test(s)) return new Date(s)
       const d = new Date(s); return isNaN(d) ? null : d
     }
+
     const phaseStarts = phases.map(p=>parseDateForGantt(p.start)).filter(Boolean)
     const phaseEnds = phases.map(p=>parseDateForGantt(p.end)).filter(Boolean)
     const pStart = parseDateForGantt(projectStart) || (phaseStarts.length ? new Date(Math.min(...phaseStarts.map(d=>d.getTime()))) : null)
     const pEnd = parseDateForGantt(projectEnd) || (phaseEnds.length ? new Date(Math.max(...phaseEnds.map(d=>d.getTime()))) : null)
     if(!pStart || !pEnd || pStart > pEnd) return (<div style={{height:80,display:'flex',alignItems:'center',color:'#9ca3af'}}>Insufficient dates for Gantt.</div>)
 
-    // timeline calculations
-    const totalDays = Math.max(1, Math.ceil((pEnd - pStart)/(1000*60*60*24)) + 1)
-    const leftPad = 60
-    const rightPad = 20
-    const innerWidth = Math.max(200, width - leftPad - rightPad)
-    const dayWidth = innerWidth / totalDays
-    const rowHeight = 32
-    const height = 20 + phases.length * rowHeight + 40
+    // helpers
+    const clamp = (v,min,max)=> Math.max(min, Math.min(max, v))
+    const daysBetween = (a,b) => Math.round((b - a)/(1000*60*60*24))
+    const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 
-    // nice tick interval (days)
-    const approxTicks = Math.min(8, Math.max(2, Math.floor(innerWidth / 120)))
-    const tickDays = Math.ceil(totalDays / approxTicks)
+    // layout
+    const totalDays = Math.max(1, daysBetween(pStart, pEnd) + 1)
+    const leftPad = 80
+    const rightPad = 20
+    const innerWidth = Math.max(240, width - leftPad - rightPad)
+    const dayWidth = innerWidth / totalDays
+    const rowHeight = 36
+    const paddingTop = 28
+    const height = paddingTop + phases.length * rowHeight + 50
+
+    // palette
+    const palette = ['#6a0dad','#4338ca','#0ea5a2','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#fb7185']
+
+    // ticks: weekly gridlines
+    const weekDays = 7
+    const approxTicks = Math.max(3, Math.min(12, Math.floor(innerWidth / 100)))
+    const tickIntervalDays = Math.max(1, Math.ceil(totalDays / approxTicks))
+
+    // month label positions
+    const months = []
+    for(let i=0;i<=totalDays;i++){
+      const d = addDays(pStart, i)
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      if(!months.find(m=>m.key === key)) months.push({ key, date: new Date(d), index: i })
+    }
+
+    // resource count per phase
+    const getResourceCount = (phaseId) => resources.filter(r => r.phaseId === phaseId).length
 
     const formatTick = d => `${('0'+d.getDate()).slice(-2)}/${('0'+(d.getMonth()+1)).slice(-2)}`
+    const formatMonth = d => d.toLocaleString('default',{ month: 'short' }) + ' ' + d.getFullYear()
 
     return (
       <div ref={containerRef} style={{border:'1px solid #edf2ff',borderRadius:10,padding:12,background:'#fff'}}>
@@ -238,54 +261,121 @@ export default function ProjectSample(){
           <div style={{fontWeight:700,color:'#0f172a'}}>Timeline</div>
           <div style={{color:'#6b7280',fontSize:12}}>{formatDate(pStart.toISOString().slice(0,10))} — {formatDate(pEnd.toISOString().slice(0,10))}</div>
         </div>
+
+        <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:8}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {/* mini-legend */}
+            {phases.slice(0,6).map((p, i) => (
+              <div key={p.id || i} style={{display:'inline-flex',alignItems:'center',gap:8,background:'#fff',padding:'4px 8px',borderRadius:8,border:'1px solid rgba(14,165,164,0.06)'}}>
+                <span style={{width:12,height:12,background: palette[i % palette.length],display:'inline-block',borderRadius:3}} />
+                <span style={{fontSize:12,color:'#0f172a'}}>{p.name || `Phase ${i+1}`}</span>
+              </div>
+            ))}
+            {phases.length > 6 && <div style={{fontSize:12,color:'#6b7280',alignSelf:'center'}}>+{phases.length - 6} more</div>}
+          </div>
+        </div>
+
         <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="xMinYMin meet">
-          {/* axis ticks */}
-          <g transform={`translate(${leftPad},20)`}>
-            {[...Array(approxTicks+1).keys()].map(i => {
-              const d = new Date(pStart.getTime() + Math.round(i * tickDays) * 24*60*60*1000)
-              const x = Math.round(((d - pStart)/(1000*60*60*24)) * dayWidth)
+          <g transform={`translate(${leftPad},${paddingTop})`}>
+
+            {/* weekly vertical gridlines */}
+            {Array.from({length: Math.ceil(totalDays / weekDays) + 1}).map((_, i) => {
+              const dayIndex = i * weekDays
+              const x = Math.round(dayIndex * dayWidth)
+              return <line key={i} x1={x} x2={x} y1={0} y2={phases.length * rowHeight} stroke="#eef2ff" />
+            })}
+
+            {/* thin daily gridlines (subtle) */}
+            {Array.from({length: totalDays}).map((_, i) => {
+              const x = Math.round(i * dayWidth)
+              return <line key={`d-${i}`} x1={x} x2={x} y1={0} y2={phases.length * rowHeight} stroke="#f8fafc" />
+            })}
+
+            {/* month labels */}
+            {months.map((m, i) => {
+              const x = Math.round(m.index * dayWidth)
               return (
-                <g key={i}>
-                  <line x1={x} x2={x} y1={0} y2={phases.length*rowHeight + 6} stroke="#eef2ff" />
-                  <text x={x} y={phases.length*rowHeight + 20} fontSize={11} fill="#6b7280" textAnchor="middle">{formatTick(d)}</text>
+                <text key={m.key} x={x + 4} y={-10} fontSize={12} fill="#6b7280">{formatMonth(m.date)}</text>
+              )
+            })}
+
+            {/* ticks (sparser numeric ticks) */}
+            {[...Array(approxTicks+1).keys()].map(i => {
+              const d = addDays(pStart, Math.round(i * tickIntervalDays))
+              const idx = Math.round((d - pStart)/(1000*60*60*24))
+              const x = Math.round(idx * dayWidth)
+              return (
+                <g key={`tick-${i}`}>
+                  <line x1={x} x2={x} y1={phases.length * rowHeight} y2={phases.length * rowHeight + 6} stroke="#e6eefb" />
+                  <text x={x} y={phases.length * rowHeight + 20} fontSize={11} fill="#6b7280" textAnchor="middle">{formatTick(d)}</text>
                 </g>
               )
             })}
 
-            {/* phase bars */}
+            {/* phase rows and bars */}
             {phases.map((p, idx) => {
               const ps = parseDateForGantt(p.start)
               const pe = parseDateForGantt(p.end)
-              if(!ps || !pe) return null
-              const startOffset = Math.max(0, Math.round((ps - pStart)/(1000*60*60*24)))
+              const y = idx * rowHeight + 6
+              // row background separator
+              const rowY = idx * rowHeight
+              if(!ps || !pe) return (
+                <g key={p.id || idx}>
+                  <rect x={0} y={rowY} width={innerWidth} height={rowHeight} fill={idx % 2 ? 'rgba(15,23,42,0.02)' : 'transparent'} />
+                </g>
+              )
+
+              const startOffset = clamp(Math.round((ps - pStart)/(1000*60*60*24)), 0, totalDays)
               const lenDays = Math.max(1, Math.round((pe - ps)/(1000*60*60*24)) + 1)
               const x = startOffset * dayWidth
               const w = Math.max(8, lenDays * dayWidth)
-              const y = idx * rowHeight
-              const color = ['#6a0dad','#4338ca','#0ea5a2','#f59e0b'][idx % 4]
+              const color = palette[idx % palette.length]
+              const resourcesCount = getResourceCount(p.id)
+
               return (
-                <g key={p.id || idx} onMouseEnter={()=>setHover({idx,x,y,w,p})} onMouseLeave={()=>setHover(null)}>
-                  <rect x={x} y={y} rx={6} ry={6} width={w} height={18} fill={color} opacity={0.12} stroke={color} />
-                  <rect x={x+2} y={y+2} rx={5} ry={5} width={Math.max(6,w-4)} height={14} fill={color} />
-                  <text x={x+8} y={y+12} fontSize={12} fill="#ffffff" style={{pointerEvents:'none'}}>{p.name || 'Phase'}</text>
+                <g key={p.id || idx} onMouseEnter={()=>setHover({idx,x,y,w,p,resourcesCount})} onMouseLeave={()=>setHover(null)}>
+                  {/* row background */}
+                  <rect x={0} y={rowY} width={innerWidth} height={rowHeight} fill={idx % 2 ? 'rgba(15,23,42,0.02)' : 'transparent'} />
+
+                  {/* outer muted bar */}
+                  <rect x={x} y={y} rx={8} ry={8} width={w} height={20} fill={color} opacity={0.12} stroke={color} />
+                  {/* inner solid bar */}
+                  <rect x={x+2} y={y+2} rx={6} ry={6} width={Math.max(6,w-4)} height={16} fill={color} />
+
+                  {/* phase label inside bar (truncate if needed) */}
+                  <text x={x + 8} y={y + 12} fontSize={12} fill="#ffffff" style={{pointerEvents:'none'}}>
+                    {p.name || 'Phase'}
+                  </text>
+
+                  {/* duration / resources badge */}
+                  <g>
+                    <rect x={x + Math.max(8, w - 90)} y={y + 2} rx={6} ry={6} width={Math.min(84, Math.max(48,w - 12))} height={12} fill="rgba(255,255,255,0.12)" />
+                    <text x={x + Math.max(14, w - 78)} y={y + 11} fontSize={11} fill="#fff">{lenDays}d • {resourcesCount} res</text>
+                  </g>
                 </g>
               )
             })}
 
-            {/* today line */}
+            {/* today marker */}
             {(() => {
               const today = new Date(); if(today < pStart || today > pEnd) return null
               const off = Math.round((today - pStart)/(1000*60*60*24)) * dayWidth
-              return <g><line x1={off} x2={off} y1={0} y2={phases.length*rowHeight} stroke="#ef4444" strokeWidth={2} strokeDasharray="4 3" /><text x={off+6} y={-4} fontSize={11} fill="#ef4444">Today</text></g>
+              return (
+                <g>
+                  <line x1={off} x2={off} y1={0} y2={phases.length*rowHeight} stroke="#ef4444" strokeWidth={2} strokeDasharray="4 3" />
+                  <text x={off+6} y={-4} fontSize={11} fill="#ef4444">Today</text>
+                </g>
+              )
             })()}
 
             {/* hover tooltip */}
             {hover && (
               <g>
-                <rect x={hover.x + hover.w + 8} y={hover.y} rx={6} ry={6} width={220} height={64} fill="#0f172a" opacity={0.95} />
-                <text x={hover.x + hover.w + 16} y={hover.y + 18} fontSize={12} fill="#fff">{hover.p.name}</text>
-                <text x={hover.x + hover.w + 16} y={hover.y + 36} fontSize={11} fill="#d1d5db">{formatDate(hover.p.start)} → {formatDate(hover.p.end)}</text>
-                <text x={hover.x + hover.w + 16} y={hover.y + 52} fontSize={11} fill="#d1d5db">{hover.p.desc || ''}</text>
+                <rect x={hover.x + hover.w + 8} y={hover.y} rx={6} ry={6} width={260} height={80} fill="#0f172a" opacity={0.95} />
+                <text x={hover.x + hover.w + 16} y={hover.y + 20} fontSize={13} fill="#fff">{hover.p.name}</text>
+                <text x={hover.x + hover.w + 16} y={hover.y + 38} fontSize={12} fill="#d1d5db">{formatDate(hover.p.start)} → {formatDate(hover.p.end)}</text>
+                <text x={hover.x + hover.w + 16} y={hover.y + 54} fontSize={12} fill="#d1d5db">Duration: {Math.max(1, daysBetween(parseDateForGantt(hover.p.start), parseDateForGantt(hover.p.end)) + 1)} days</text>
+                <text x={hover.x + hover.w + 16} y={hover.y + 70} fontSize={12} fill="#d1d5db">Resources: {hover.resourcesCount}</text>
               </g>
             )}
 
