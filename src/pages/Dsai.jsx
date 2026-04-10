@@ -106,7 +106,7 @@ export default function Dsai(){
     setProjectSummaries(computeProjectSummaries(parsedData))
   }, [parsedData])
 
-  const parseCSV = (txt) => {
+  const parseCSV = (txt = '') => {
     const lines = txt.split(/\r?\n/).filter(l => l.trim())
     if (!lines.length) return []
     const headers = lines.shift().split(',').map(h => h.trim())
@@ -504,7 +504,7 @@ export default function Dsai(){
             {/* separator */}
             <div style={{width:1, height:22, background:'#e6eef6', margin:'0 6px'}} aria-hidden />
 
-            {/* upload tab */}
+            {/* upload tab (moved before DEX) */}
             <button
               onClick={() => setActiveTab('upload')}
               aria-pressed={activeTab === 'upload'}
@@ -519,6 +519,25 @@ export default function Dsai(){
                 boxShadow: activeTab === 'upload' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
               }}
             >Upload</button>
+
+            {/* separator */}
+            <div style={{width:1, height:22, background:'#e6eef6', margin:'0 6px'}} aria-hidden />
+
+            {/* DEX tab */}
+            <button
+              onClick={() => setActiveTab('dex')}
+              aria-pressed={activeTab === 'dex'}
+              style={{
+                padding:'10px 16px',
+                borderRadius:6,
+                border: activeTab === 'dex' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                background: activeTab === 'dex' ? '#ffffff' : '#f8fafc',
+                color: activeTab === 'dex' ? '#0f172a' : '#475569',
+                fontWeight:800,
+                cursor:'pointer',
+                boxShadow: activeTab === 'dex' ? '0 2px 6px rgba(37,99,235,0.06)' : 'none'
+              }}
+            >DEX</button>
           </div>
           
           {/* subtle divider to separate tabs from content (reduced) */}
