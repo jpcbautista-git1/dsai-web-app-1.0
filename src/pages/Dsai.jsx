@@ -571,63 +571,65 @@ export default function Dsai(){
             <div style={{padding:12}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <div>
-                  <div style={{fontSize:18,fontWeight:900,color:'#0f172a'}}>Delivery EXcellence</div>
+                  <div style={{fontSize:18,fontWeight:900,color:'var(--text-h)'}}>DEX — Delivery Experience</div>
+                  <div style={{fontSize:13,color:'var(--muted)',marginTop:6}}>Overview of all projects, AI-identified risks, and sync status.</div>
+                </div>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  {/* header action buttons removed to declutter; left intentionally blank */}
                 </div>
               </div>
 
               {/* KPI cards */}
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:12}}>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6b7280',fontWeight:700}}>Total Projects</div>
-                  <div style={{fontSize:22,fontWeight:900,color:'#0f172a',marginTop:6}}>{dexTotalProjects}</div>
+                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Total Projects</div>
+                  <div style={{fontSize:22,fontWeight:900,color:'var(--text-h)',marginTop:6}}>{dexTotalProjects}</div>
                 </div>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6b7280',fontWeight:700}}>Projects At Risk</div>
+                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Projects At Risk</div>
                   <div style={{fontSize:22,fontWeight:900,color:'#b91c1c',marginTop:6}}>{dexAtRisk}</div>
                 </div>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6b7280',fontWeight:700}}>Synced</div>
+                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Synced</div>
                   <div style={{fontSize:22,fontWeight:900,color:'#15803d',marginTop:6}}>{dexSynced}</div>
                 </div>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6b7280',fontWeight:700}}>Avg Hours</div>
+                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Avg Hours</div>
                   <div style={{fontSize:22,fontWeight:900,color:'#f97316',marginTop:6}}>{dexAvgHours}</div>
                 </div>
               </div>
 
-              {/* Main area: projects grid + right side panels */}
               <div style={{display:'grid',gridTemplateColumns:'2fr 360px',gap:12}}>
                 <div>
-                  {/* Projects grid */}
                   <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
                     {projectSummaries.map(p => (
-                      <div key={p.project_id} style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:10}}>
+                      <div key={p.project_id} style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:10}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                           <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                            <div style={{width:44,height:44,borderRadius:10,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',fontWeight:800}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
+                            <div style={{width:44,height:44,borderRadius:10,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',fontWeight:800,color:'var(--text-h)'}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
                             <div>
-                              <div style={{fontWeight:800}}>{p.project_name}</div>
-                              <div style={{fontSize:12,color:'#6b7280'}}>{p.project_id}</div>
+                              <div style={{fontWeight:800,color:'var(--text-h)'}}>{p.project_name}</div>
+                              <div style={{fontSize:12,color:'var(--muted)'}}>{p.project_id}</div>
                             </div>
                           </div>
                           <div style={{textAlign:'right'}}>
-                            <div style={{fontWeight:900}}>{p.total_hours || 0}h</div>
-                            <div style={{fontSize:12,color:'#6b7280',marginTop:6}}>{p.last_tx || 'n/a'}</div>
+                            <div style={{fontWeight:900,color:'var(--text-h)'}}>{p.total_hours || 0}h</div>
+                            <div style={{fontSize:12,color:'var(--muted)',marginTop:6}}>{p.last_tx || 'n/a'}</div>
                           </div>
                         </div>
 
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                           <div style={{display:'flex',gap:8,alignItems:'center'}}>
                             {(p.people||[]).slice(0,3).map((pp, i) => (
-                              <div key={i} style={{fontSize:12,color:'#475569',background:'#f8fafc',padding:'6px 8px',borderRadius:8}}>{pp.person}</div>
+                              <div key={i} style={{fontSize:12,color:'var(--text)',background:'var(--card-muted-bg)',padding:'6px 8px',borderRadius:8}}>{pp.person}</div>
                             ))}
                           </div>
                           <div style={{display:'flex',gap:8}}>
-                            <button onClick={() => openDexModal(p)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer'}}>Open</button>
+                            <button onClick={() => openDexModal(p)} style={{padding:'6px 10px',borderRadius:8,border:`1px solid var(--card-border)`,background:'var(--card-bg)',fontWeight:800,cursor:'pointer'}}>Open</button>
                           </div>
                         </div>
 
-                        <div style={{fontSize:13,color:'#334155'}}>
+                        <div style={{fontSize:13,color:'var(--text)'}}>
                           <strong>Key risks:</strong> {(p.key_risks || []).slice(0,2).join('; ') || 'None'}
                         </div>
                       </div>
@@ -636,25 +638,25 @@ export default function Dsai(){
                 </div>
 
                 <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12}}>
-                    <div style={{fontWeight:800,marginBottom:8}}>Risk Categories</div>
+                  <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:12}}>
+                    <div style={{fontWeight:800,marginBottom:8,color:'var(--text-h)'}}>Risk Categories</div>
                     <div>
                       {Object.keys(dexRiskCategories).length > 0 ? Object.entries(dexRiskCategories).map(([cat,count]) => (
                         <div key={cat} style={{display:'flex',justifyContent:'space-between',padding:'6px 0'}}>
-                          <div style={{color:'#475569'}}>{cat}</div>
-                          <div style={{fontWeight:800}}>{count}</div>
+                          <div style={{color:'var(--text)'}}>{cat}</div>
+                          <div style={{fontWeight:800,color:'var(--text-h)'}}>{count}</div>
                         </div>
-                      )) : <div style={{color:'#6b7280'}}>No risks detected</div>}
+                      )) : <div style={{color:'var(--muted)'}}>No risks detected</div>}
                     </div>
                   </div>
 
-                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12}}>
-                    <div style={{fontWeight:800,marginBottom:8}}>Top Projects</div>
+                  <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:12}}>
+                    <div style={{fontWeight:800,marginBottom:8,color:'var(--text-h)'}}>Top Projects</div>
                     <div style={{display:'grid',gap:8}}>
                       {dexTopProjects.map(p => (
                         <div key={p.project_id} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                          <div style={{fontWeight:700}}>{p.project_name}</div>
-                          <div style={{fontSize:13,color:'#6b7280'}}>{p.total_hours || 0}h</div>
+                          <div style={{fontWeight:700,color:'var(--text-h)'}}>{p.project_name}</div>
+                          <div style={{fontSize:13,color:'var(--muted)'}}>{p.total_hours || 0}h</div>
                         </div>
                       ))}
                     </div>
