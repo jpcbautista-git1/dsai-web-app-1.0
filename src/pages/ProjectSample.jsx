@@ -556,7 +556,7 @@ export default function ProjectSample(){
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project End Date</div>
                         <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }}>
-                          <input id="inlineEndDate" type="date" min={todayIso} value={dsaiData.endDate} onChange={(e)=>setDsaiData(s=>({...s,endDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
+                          <input id="inlineEndDate" type="date" min={dsaiData.startDate || todayIso} value={dsaiData.endDate} onChange={(e)=>setDsaiData(s=>({...s,endDate:e.target.value}))} onClick={()=>{ if(!dsaiData.startDate) return; const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} readOnly={!dsaiData.startDate} title={!dsaiData.startDate ? 'Set start date first' : ''} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background: !dsaiData.startDate ? '#f3f4f6' : '#fff'}} />
                         </div>
                       </div>
                     </div>
@@ -715,7 +715,7 @@ export default function ProjectSample(){
                              </div>
                              <div>
                                <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                               <input className={"phase-end " + (phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" min={todayIso} value={p.end} onChange={(e)=>updatePhase(p.id,{end:e.target.value})} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                               <input className={"phase-end " + (phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? 'invalid' : '')} type="date" min={p.start || todayIso} value={p.end} onChange={(e)=>updatePhase(p.id,{end:e.target.value})} readOnly={!p.start} title={!p.start ? 'Set start date first' : ''} style={{width:'100%',padding:10,borderRadius:8,border: phaseErrors[p.id]?.end || phaseErrors[p.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background: !p.start ? '#f3f4f6' : '#fff'}} />
                              </div>
                            </div>
 
@@ -777,7 +777,7 @@ export default function ProjectSample(){
                                        </div>
                                        <div>
                                          <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                                         <input className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={todayIso} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                         <input className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={r.start || todayIso} readOnly={!r.start} title={!r.start ? 'Set start date first' : ''} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background: !r.start ? '#f3f4f6' : '#fff'}} />
                                        </div>
                                      </div>
 
