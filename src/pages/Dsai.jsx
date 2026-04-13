@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 
 export default function Dsai(){
+  const DEX_MODAL_SAVE_KEY = 'dsaiDexModalSavedAssignments'
   const uploadRef = useRef(null)
   const [parsedData, setParsedData] = useState(null)
   const [projectSummaries, setProjectSummaries] = React.useState([
@@ -66,12 +67,47 @@ export default function Dsai(){
   // DEX modal state and helpers
   const [dexModalOpen, setDexModalOpen] = React.useState(false)
   const [dexModalProject, setDexModalProject] = React.useState(null)
+  const [dexSaveMessage, setDexSaveMessage] = React.useState('')
+  const [dexModalReadOnly, setDexModalReadOnly] = React.useState(false)
   const openDexModal = (project) => { setDexModalProject(project); setDexModalOpen(true) }
-  const closeDexModal = () => { setDexModalOpen(false); setDexModalProject(null) }
+  const closeDexModal = () => { setDexModalOpen(false); setDexModalProject(null); setDexModalReadOnly(false) }
 
   // mitigation assignment state for modal (owner selection + accept flag)
   const [mitigationAssignments, setMitigationAssignments] = React.useState({})
   const setMitigationOwner = (idx, owner) => setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), owner } }))
+
+  // load previously saved assignments for the selected project when opening the modal
+  React.useEffect(() => {
+    if (!dexModalOpen || !dexModalProject) return
+    try {
+      const raw = localStorage.getItem(DEX_MODAL_SAVE_KEY)
+      const savedByProject = raw ? JSON.parse(raw) : {}
+      const projectKey = dexModalProject.project_id || dexModalProject.project_name || 'unknown'
+      const savedAssignments = savedByProject?.[projectKey] || {}
+      setMitigationAssignments(savedAssignments)
+      setDexModalReadOnly(Object.keys(savedAssignments).length > 0)
+    } catch (e) {
+      setMitigationAssignments({})
+      setDexModalReadOnly(false)
+    }
+  }, [dexModalOpen, dexModalProject])
+
+  const saveDexModalAssignments = () => {
+    if (!dexModalProject) return
+    try {
+      const raw = localStorage.getItem(DEX_MODAL_SAVE_KEY)
+      const savedByProject = raw ? JSON.parse(raw) : {}
+      const projectKey = dexModalProject.project_id || dexModalProject.project_name || 'unknown'
+      savedByProject[projectKey] = mitigationAssignments
+      localStorage.setItem(DEX_MODAL_SAVE_KEY, JSON.stringify(savedByProject))
+      setDexModalReadOnly(true)
+      setDexSaveMessage('Saved')
+      setTimeout(() => setDexSaveMessage(''), 1400)
+    } catch (e) {
+      setDexSaveMessage('Save failed')
+      setTimeout(() => setDexSaveMessage(''), 1800)
+    }
+  }
   
   // set a full status for a mitigation ('open'|'accepted'|'rejected'|'deferred')
   const setMitigationStatus = (idx, status, data) => setMitigationAssignments(prev => ({
@@ -859,7 +895,7 @@ export default function Dsai(){
                {/* DEX modal */}
                {dexModalOpen && (
                  <div style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'rgba(2,6,23,0.55)',zIndex:10000,padding:20}} role="dialog" aria-modal="true">
-                  <div style={{width:920,maxWidth:'100%',maxHeight:'92%',overflow:'hidden',background:'#fff',borderRadius:12,padding:0,boxShadow:'0 20px 60px rgba(2,6,23,0.35)',border:'1px solid rgba(15,23,42,0.06)',display:'flex',flexDirection:'column',...modalBaseFont}}>
+                  <div style={{width:1200,maxWidth:'100%',maxHeight:'92%',overflow:'hidden',background:'#fff',borderRadius:12,padding:0,boxShadow:'0 20px 60px rgba(2,6,23,0.35)',border:'1px solid rgba(15,23,42,0.06)',display:'flex',flexDirection:'column',...modalBaseFont}}>
 
                     {/* modal header */}
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #eef1f6'}}>
@@ -880,6 +916,10 @@ export default function Dsai(){
                           </svg>
                           <span style={{display:'inline-block',transform:'translateY(-1px)'}}>Export</span>
                         </button>
+                        <button onClick={saveDexModalAssignments} aria-label="Save DEX actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                          Save
+                        </button>
+                        {dexSaveMessage && <div style={{fontSize:12,color:dexSaveMessage === 'Saved' ? '#065f46' : '#b91c1c',fontWeight:700}}>{dexSaveMessage}</div>}
                         <button onClick={closeDexModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:'pointer'}}>Close</button>
                        </div>
                     </div>
@@ -900,7 +940,9 @@ export default function Dsai(){
                           <colgroup>
                             <col style={{width:'25'}} />
                             <col style={{width:'15%'}} />
-                            <col style={{width:'50%'}} />
+                            <col style={{width:'44%'}} />
+                            <col style={{width:'18%'}} />
+                            <col style={{width:'10%'}} />
                             <col style={{width:'10%'}} />
                           </colgroup>
                           <thead style={{background:'#f8fafc'}}>
@@ -908,6 +950,8 @@ export default function Dsai(){
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'30%'}}>Risk</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'14%'}}>Risk level</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'12%'}}>Actions Taken</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'10%'}}>Due Date</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'10%'}}>Status</th>
                             </tr>
                           </thead>
@@ -918,30 +962,19 @@ export default function Dsai(){
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
 
-                                  {/* Suggested mitigation + actions */}
+                                  {/* Suggested mitigation */}
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
                                     <div>{generateMitigationForRisk(rk)}</div>
-                                    <div style={{marginTop:8,display:'flex',gap:8,alignItems:'center'}}>
-                                      <select value={mitigationAssignments[idx]?.owner || 'PM'} onChange={(e) => setMitigationOwner(idx, e.target.value)} style={{padding:'6px 8px',borderRadius:6,border:'1px solid #e6eef6'}}>
-                                        <option value="PM">PM</option>
-                                        <option value="Tech Lead">Tech Lead</option>
-                                        <option value="Resource Lead">Resource Lead</option>
-                                        <option value="Finance">Finance</option>
-                                        <option value="Sponsor">Sponsor</option>
-                                      </select>
+                                  </td>
 
-                                      <button onClick={() => toggleAcceptMitigation(idx)} style={{padding:'6px 10px',borderRadius:6,background: mitigationAssignments[idx]?.accepted ? '#10b981' : '#2563eb',color:'#fff',border:0,cursor:'pointer'}}>
-                                        {mitigationAssignments[idx]?.accepted ? 'Accepted' : 'Accept'}
-                                      </button>
+                                  {/* Actions Taken */}
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
+                                    <textarea placeholder="Enter action" readOnly={dexModalReadOnly} value={mitigationAssignments[idx]?.actionsTaken || ''} onChange={(e) => setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), actionsTaken: e.target.value } }))} style={{width:'100%',minHeight:'80px',padding:'8px 10px',borderRadius:6,border:'1px solid #e6eef6',fontSize:12,boxSizing:'border-box',fontFamily:'inherit',resize:'vertical',background:dexModalReadOnly ? '#f8fafc' : '#fff'}} />
+                                  </td>
 
-                                      <button onClick={() => deferMitigation(idx)} style={{padding:'6px 10px',borderRadius:6,background:'#f59e0b',color:'#fff',border:0,cursor:'pointer'}} title="Defer this mitigation">
-                                        Defer
-                                      </button>
-
-                                      <button onClick={() => rejectMitigation(idx)} style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:'pointer'}} title="Reject this mitigation">
-                                        Reject
-                                      </button>
-                                    </div>
+                                  {/* Due Date */}
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#6b7280',fontSize:12}}>
+                                    —
                                   </td>
 
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'10%'}}>
@@ -958,7 +991,7 @@ export default function Dsai(){
                                 </tr>
                               ))
                             ) : (
-                              <tr><td style={{padding:16}} colSpan={4}>No risks available.</td></tr>
+                              <tr><td style={{padding:16}} colSpan={6}>No risks available.</td></tr>
                             )}
                           </tbody>
                         </table>
