@@ -34,6 +34,11 @@ export default function Dsai(){
   const [activeTab, setActiveTab] = useState('dsai')
   const onUploadClick = () => uploadRef.current?.click()
 
+  const normalizeDexViewPublishStatus = (value) => {
+    if (value === 'Accepted') return 'Published'
+    return value || ''
+  }
+
   // format date/time for display (e.g. "Apr 9, 2026 9:30 AM")
   const formatDateTime = (d) => {
     if (!d) return ''
@@ -91,6 +96,7 @@ export default function Dsai(){
   const [dexViewModalReadOnly, setDexViewModalReadOnly] = React.useState(false)
   const [dexViewSaveMessage, setDexViewSaveMessage] = React.useState('')
   const [publishTooltip, setPublishTooltip] = React.useState(null)
+  const [rejectReasonEditor, setRejectReasonEditor] = React.useState(null)
 
   const openDexViewModal = (project) => {
     setDexViewModalProject(project)
@@ -105,6 +111,7 @@ export default function Dsai(){
     setDexViewModalReadOnly(false)
     setDexViewSaveMessage('')
     setPublishTooltip(null)
+    setRejectReasonEditor(null)
   }
 
   // load previously saved DEX View assignments for selected project
@@ -115,7 +122,16 @@ export default function Dsai(){
       const savedByProject = raw ? JSON.parse(raw) : {}
       const projectKey = dexViewModalProject.project_id || dexViewModalProject.project_name || 'unknown'
       const savedAssignments = savedByProject?.[projectKey] || {}
-      setDexViewMitigationAssignments(savedAssignments)
+      const normalizedSavedAssignments = Object.fromEntries(
+        Object.entries(savedAssignments).map(([key, row]) => [
+          key,
+          {
+            ...(row || {}),
+            publish: normalizeDexViewPublishStatus(row?.publish)
+          }
+        ])
+      )
+      setDexViewMitigationAssignments(normalizedSavedAssignments)
       setDexViewModalReadOnly(true)
       setDexViewSaveMessage('')
     } catch (e) {
@@ -137,10 +153,11 @@ export default function Dsai(){
       risks.forEach((_, idx) => {
         const row = normalizedAssignments[idx] || {}
         const mappedPriority = row.riskPriority || (row.dexRisk === 'Red' ? 'High' : row.dexRisk === 'Green' ? 'Low' : 'Medium')
+        const mappedPublish = normalizeDexViewPublishStatus(row.publish)
         normalizedAssignments[idx] = {
           ...row,
           riskPriority: mappedPriority,
-          publish: row.publish || ''
+          publish: mappedPublish
         }
       })
 
@@ -154,6 +171,11 @@ export default function Dsai(){
       setDexViewSaveMessage('Save failed')
       setTimeout(() => setDexViewSaveMessage(''), 1800)
     }
+  }
+
+  const isDexViewRowLocked = (idx) => {
+    const rowStatus = normalizeDexViewPublishStatus(dexViewMitigationAssignments[idx]?.publish)
+    return rowStatus === 'Published' || rowStatus === 'Rejected'
   }
 
   // load previously saved assignments for the selected project when opening the modal
@@ -887,7 +909,7 @@ export default function Dsai(){
                         <button onClick={saveDexViewModalAssignments} aria-label="Save DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:'pointer'}}>
                           Save
                         </button>
-                        <button onClick={() => setDexViewModalReadOnly(false)} aria-label="Edit DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                        <button onClick={() => { setDexViewModalReadOnly(false); setRejectReasonEditor(null) }} aria-label="Edit DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:'pointer'}}>
                           Edit
                         </button>
                         {dexViewSaveMessage && <div style={{fontSize:12,color:dexViewSaveMessage === 'Saved' ? '#065f46' : '#b91c1c',fontWeight:700}}>{dexViewSaveMessage}</div>}
@@ -910,14 +932,15 @@ export default function Dsai(){
                           {(dexViewModalProject?.key_risks || []).length} risks
                         </div>
                       </div>
-                      <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
+                      <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'visible',background:'#fff'}}>
                         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,tableLayout:'fixed'}}>
                           <colgroup>
                             <col style={{width:'20'}} />
                             <col style={{width:'14%'}} />
-                            <col style={{width:'43%'}} />
+                            <col style={{width:'39%'}} />
                             <col style={{width:'18%'}} />
-                            <col style={{width:'20%'}} />
+                            <col style={{width:'17%'}} />
+                            <col style={{width:'12%'}} />
                           </colgroup>
                           <thead style={{background:'#f8fafc'}}>
                             <tr style={{textAlign:'left'}}>
@@ -925,13 +948,19 @@ export default function Dsai(){
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'14%'}}>Risk level</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'18%'}}>Risk Priority</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'20%'}}>Publish</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'17%'}}>Publish</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'12%'}}>Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {dexViewModalProject?.key_risks && dexViewModalProject.key_risks.length > 0 ? (
                               dexViewModalProject.key_risks.map((rk, idx) => (
                                 <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
+                                  {(() => {
+                                    const rowStatus = dexViewMitigationAssignments[idx]?.publish || ''
+                                    const rowLocked = isDexViewRowLocked(idx)
+                                    return (
+                                      <>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
@@ -951,9 +980,12 @@ export default function Dsai(){
                                         <div style={{display:'grid',gap:8}}>
                                           <select
                                             value={riskPriority}
-                                            disabled={dexViewModalReadOnly}
-                                            onChange={(e) => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), riskPriority: e.target.value } }))}
-                                            style={{width:'100%',padding:'6px 8px',borderRadius:8,border:'1px solid #dbe3ef',fontSize:12,fontWeight:700,background:dexViewModalReadOnly ? '#f8fafc' : '#fff',color:'#0f172a'}}
+                                            disabled={dexViewModalReadOnly || rowLocked}
+                                            onChange={(e) => {
+                                              if (isDexViewRowLocked(idx)) return
+                                              setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), riskPriority: e.target.value } }))
+                                            }}
+                                            style={{width:'100%',padding:'6px 8px',borderRadius:8,border:'1px solid #dbe3ef',fontSize:12,fontWeight:700,background:(dexViewModalReadOnly || rowLocked) ? '#f8fafc' : '#fff',color:'#0f172a'}}
                                           >
                                             <option value="High">High</option>
                                             <option value="Medium">Medium</option>
@@ -980,21 +1012,86 @@ export default function Dsai(){
                                             setPublishTooltip({ row: idx, left, top, placement })
                                           }}
                                           onMouseLeave={() => setPublishTooltip(null)}
-                                          disabled={dexViewModalReadOnly}
-                                          onClick={() => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Published' } }))}
-                                          style={{padding:'6px 10px',borderRadius:6,background:'#d97706',color:'#fff',border:0,cursor:dexViewModalReadOnly ? 'not-allowed' : 'pointer',opacity:dexViewModalReadOnly ? 0.6 : 1,fontWeight:700}}
+                                          disabled={dexViewModalReadOnly || rowLocked}
+                                          onClick={() => {
+                                            if (isDexViewRowLocked(idx)) return
+                                            setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Published' } }))
+                                          }}
+                                          style={{padding:'6px 10px',borderRadius:6,background:'#16a34a',color:'#fff',border:0,cursor:(dexViewModalReadOnly || rowLocked) ? 'not-allowed' : 'pointer',opacity:(dexViewModalReadOnly || rowLocked) ? 0.6 : 1,fontWeight:700}}
                                         >
                                           Publish
                                         </button>
 
-                                      <button disabled={dexViewModalReadOnly} onClick={() => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Rejected' } }))} style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:dexViewModalReadOnly ? 'not-allowed' : 'pointer',opacity:dexViewModalReadOnly ? 0.6 : 1,fontWeight:700}}>Reject</button>
+                                        <button
+                                          disabled={dexViewModalReadOnly || rowLocked}
+                                          onClick={() => {
+                                            if (isDexViewRowLocked(idx)) return
+                                            setRejectReasonEditor({ row: idx, value: dexViewMitigationAssignments[idx]?.rejectReason || '', error: '' })
+                                          }}
+                                          style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:(dexViewModalReadOnly || rowLocked) ? 'not-allowed' : 'pointer',opacity:(dexViewModalReadOnly || rowLocked) ? 0.6 : 1,fontWeight:700}}
+                                        >
+                                          Reject
+                                        </button>
                                       </div>
+                                      {rejectReasonEditor?.row === idx && !rowLocked && (
+                                        <div style={{width:'100%',padding:10,borderRadius:10,background:'#fff',border:'1px solid #fecaca',boxShadow:'0 10px 24px rgba(15,23,42,0.14)'}}>
+                                          <div style={{fontSize:11,fontWeight:700,color:'#7f1d1d',marginBottom:6}}>Rejection reason</div>
+                                          <textarea
+                                            value={rejectReasonEditor.value}
+                                            onChange={(e) => setRejectReasonEditor(prev => ({ ...(prev || {}), value: e.target.value, error: '' }))}
+                                            placeholder="Enter reason"
+                                            style={{width:'100%',minHeight:64,resize:'vertical',padding:'6px 8px',fontSize:12,borderRadius:8,border:'1px solid #e5e7eb',boxSizing:'border-box',fontFamily:'inherit'}}
+                                          />
+                                          {rejectReasonEditor?.error && (
+                                            <div style={{marginTop:6,fontSize:11,color:'#b91c1c',fontWeight:700}}>{rejectReasonEditor.error}</div>
+                                          )}
+                                          <div style={{display:'flex',justifyContent:'flex-end',gap:6,marginTop:8}}>
+                                            <button onClick={() => setRejectReasonEditor(null)} style={{padding:'5px 8px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancel</button>
+                                            <button onClick={() => {
+                                              if (!String(rejectReasonEditor?.value || '').trim()) {
+                                                setRejectReasonEditor(prev => ({ ...(prev || {}), error: 'Reason is required' }))
+                                                return
+                                              }
+                                              setDexViewMitigationAssignments(prev => ({
+                                                ...prev,
+                                                [idx]: { ...(prev[idx] || {}), publish: 'Rejected', rejectReason: String(rejectReasonEditor?.value || '').trim() }
+                                              }))
+                                              setRejectReasonEditor(null)
+                                            }} style={{padding:'5px 8px',borderRadius:6,border:'1px solid #b91c1c',background:'#dc2626',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>Apply</button>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {dexViewMitigationAssignments[idx]?.publish === 'Rejected' && String(dexViewMitigationAssignments[idx]?.rejectReason || '').trim() && (
+                                        <div style={{padding:'6px 8px',borderRadius:8,background:'#fef2f2',border:'1px solid #fecaca',color:'#7f1d1d',fontSize:11,lineHeight:1.35}}>
+                                          <span style={{fontWeight:800}}>Reason:</span> {dexViewMitigationAssignments[idx]?.rejectReason}
+                                        </div>
+                                      )}
                                     </div>
                                   </td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
+                                    {(() => {
+                                      const status = dexViewMitigationAssignments[idx]?.publish || ''
+                                      if (!status) {
+                                        return null
+                                      }
+                                      const tone = status === 'Published'
+                                        ? { bg: '#ecfdf5', border: '#bbf7d0', text: '#166534', dot: '#22c55e' }
+                                        : { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', dot: '#ef4444' }
+                                      return (
+                                        <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 8px',borderRadius:999,border:`1px solid ${tone.border}`,background:tone.bg,color:tone.text,fontWeight:800,fontSize:11}}>
+                                          <span style={{width:8,height:8,borderRadius:999,background:tone.dot}}></span>
+                                          {status}
+                                        </span>
+                                      )
+                                    })()}
+                                  </td>
+                                      </>
+                                    )
+                                  })()}
                                 </tr>
                               ))
                             ) : (
-                              <tr><td style={{padding:16}} colSpan={5}>No risks available.</td></tr>
+                              <tr><td style={{padding:16}} colSpan={6}>No risks available.</td></tr>
                             )}
                           </tbody>
                         </table>
