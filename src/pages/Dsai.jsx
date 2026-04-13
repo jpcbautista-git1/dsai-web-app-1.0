@@ -69,6 +69,54 @@ export default function Dsai(){
   const openDexModal = (project) => { setDexModalProject(project); setDexModalOpen(true) }
   const closeDexModal = () => { setDexModalOpen(false); setDexModalProject(null) }
 
+  // mitigation assignment state for modal (owner selection + accept flag)
+  const [mitigationAssignments, setMitigationAssignments] = React.useState({})
+  const setMitigationOwner = (idx, owner) => setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), owner } }))
+  
+  // set a full status for a mitigation ('open'|'accepted'|'rejected'|'deferred')
+  const setMitigationStatus = (idx, status, data) => setMitigationAssignments(prev => ({
+    ...prev,
+    [idx]: {
+      ...(prev[idx] || {}),
+      status,
+      accepted: status === 'accepted',
+      ...(data || {})
+    }
+  }))
+
+  // toggle accept/unaccept while preserving other metadata
+  const toggleAcceptMitigation = (idx) => setMitigationAssignments(prev => {
+    const cur = prev[idx] || {}
+    const newAccepted = !cur.accepted
+    const newStatus = newAccepted ? 'accepted' : (cur.status === 'rejected' ? 'rejected' : 'open')
+    return { ...prev, [idx]: { ...cur, accepted: newAccepted, status: newStatus, owner: cur.owner || 'PM' } }
+  })
+
+  // reject with optional reason (uses browser prompt for simplicity in this POC)
+  const rejectMitigation = (idx) => {
+    try {
+      const ok = window.confirm('Reject this mitigation? This will mark it as Rejected.')
+      if (!ok) return
+      const reason = window.prompt('Optional reason for rejection (press Cancel to skip):', '')
+      setMitigationStatus(idx, 'rejected', { rejectedReason: reason || '' })
+    } catch (e) {
+      // defensive: if window is not available, just set rejected
+      setMitigationStatus(idx, 'rejected', { rejectedReason: '' })
+    }
+  }
+
+  // defer with optional until date/string (uses prompt for POC)
+  const deferMitigation = (idx) => {
+    try {
+      const until = window.prompt('Defer until (YYYY-MM-DD or a short description):', '')
+      if (until == null) return // cancelled
+      const untilVal = (String(until || '').trim()) || 'unspecified'
+      setMitigationStatus(idx, 'deferred', { deferUntil: untilVal })
+    } catch (e) {
+      setMitigationStatus(idx, 'deferred', { deferUntil: 'unspecified' })
+    }
+  }
+
   // compute summaries from parsed rows
   const computeProjectSummaries = (rows = []) => {
     const projects = {}
@@ -869,8 +917,44 @@ export default function Dsai(){
                                 <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>{generateMitigationForRisk(rk)}</td>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'10%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#ecfdf5',color:'#15803d',fontWeight:700,fontSize:12}}>Open</span></td>
+
+                                  {/* Suggested mitigation + actions */}
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
+                                    <div>{generateMitigationForRisk(rk)}</div>
+                                    <div style={{marginTop:8,display:'flex',gap:8,alignItems:'center'}}>
+                                      <select value={mitigationAssignments[idx]?.owner || 'PM'} onChange={(e) => setMitigationOwner(idx, e.target.value)} style={{padding:'6px 8px',borderRadius:6,border:'1px solid #e6eef6'}}>
+                                        <option value="PM">PM</option>
+                                        <option value="Tech Lead">Tech Lead</option>
+                                        <option value="Resource Lead">Resource Lead</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="Sponsor">Sponsor</option>
+                                      </select>
+
+                                      <button onClick={() => toggleAcceptMitigation(idx)} style={{padding:'6px 10px',borderRadius:6,background: mitigationAssignments[idx]?.accepted ? '#10b981' : '#2563eb',color:'#fff',border:0,cursor:'pointer'}}>
+                                        {mitigationAssignments[idx]?.accepted ? 'Accepted' : 'Accept'}
+                                      </button>
+
+                                      <button onClick={() => deferMitigation(idx)} style={{padding:'6px 10px',borderRadius:6,background:'#f59e0b',color:'#fff',border:0,cursor:'pointer'}} title="Defer this mitigation">
+                                        Defer
+                                      </button>
+
+                                      <button onClick={() => rejectMitigation(idx)} style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:'pointer'}} title="Reject this mitigation">
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </td>
+
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'10%'}}>
+                                    {/* status badge: Accepted / Rejected / Deferred / Open */}
+                                    {(() => {
+                                      const ms = mitigationAssignments[idx] || {}
+                                      const st = ms.status || (ms.accepted ? 'accepted' : 'open')
+                                      if (st === 'accepted') return (<span style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#ecfdf5',color:'#065f46',fontWeight:700,fontSize:12}}>Accepted</span>)
+                                      if (st === 'rejected') return (<span title={ms.rejectedReason || ''} style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#fff1f2',color:'#9f1239',fontWeight:700,fontSize:12}}>Rejected</span>)
+                                      if (st === 'deferred') return (<span title={ms.deferUntil || ''} style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#fff7ed',color:'#92400e',fontWeight:700,fontSize:12}}>Deferred{ms.deferUntil ? ` • ${ms.deferUntil}` : ''}</span>)
+                                      return (<span style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#fff7ed',color:'#92400e',fontWeight:700,fontSize:12}}>Open</span>)
+                                    })()}
+                                  </td>
                                 </tr>
                               ))
                             ) : (
@@ -920,7 +1004,7 @@ export default function Dsai(){
 
           {/* Debug panel: show last upload and parsed data so we can debug missing rows */}
           {lastUpload && (
-            <div style={{padding:12,background:'#fff4',marginTop:12,borderRadius:8,border:'1px dashed #e3e6ef'}}>
+            <div style={{padding:12,background:'#fff4',marginTop:12,borderRadius:8,border:'1px dashed #e6e6ef'}}>
               <div style={{fontSize:12,color:'#374151',fontWeight:700}}>Last upload</div>
               <div style={{fontSize:12,color:'#6b7280',marginTop:6}}>jobId: {lastUpload.jobId || '(none)'}</div>
               <div style={{fontSize:12,color:'#6b7280'}}>savedOriginal: {lastUpload.savedOriginal || '(unknown)'}</div>
