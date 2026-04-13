@@ -14,7 +14,10 @@ export default function Dsai(){
       people: [ { person: 'Chou, Adrich' } ],
       total_hours: 0,
       last_tx: null,
-      key_risks: ['Scope creep from stakeholder requests', 'Delayed design approval from marketing']
+      key_risks: [
+        'Risk of project delay and staffing concerns. Reason: Engagement is near start date, and resources are still unnamed.',
+        'Risk of project delay and project detail concerns. Reason: Engagement is near start date, and project phase not finalized.'
+      ]
     },
     {
       project_id: 'sap-abap',
@@ -22,7 +25,9 @@ export default function Dsai(){
       people: [ { person: 'Santos, Aristotle' } ],
       total_hours: 0,
       last_tx: null,
-      key_risks: ['Resource shortage on ABAP skills', 'Integration testing delays']
+      key_risks: [
+        'Risk of project start delay. Reason: No actual charges, but start date has already lapsed.'
+      ]
     },
     {
       project_id: 'changi-soar',
@@ -30,7 +35,9 @@ export default function Dsai(){
       people: [ { person: 'Lorilla, Miguel' } ],
       total_hours: 0,
       last_tx: null,
-      key_risks: ['External vendor dependency', 'High budget constraints']
+      key_risks: [
+        'Risk of going above budget. Reason: Expected level of resource charging is different from the baseline solution.'
+      ]
     },
     {
       project_id: 'bdo-spm',
@@ -38,7 +45,9 @@ export default function Dsai(){
       people: [],
       total_hours: 0,
       last_tx: null,
-      key_risks: ['Complex data migration', 'Stakeholder alignment']
+      key_risks: [
+        'Risk of going above budget. Reason: Number of resources charging is more than the estimated resources.'
+      ]
     },
     {
       project_id: 'japan-css',
@@ -46,7 +55,9 @@ export default function Dsai(){
       people: [],
       total_hours: 0,
       last_tx: null,
-      key_risks: ['Time zone coordination', 'Quality assurance gaps']
+      key_risks: [
+        'Risk of going above budget. Reason: Resource is supposed to end but is still continuing to charge.'
+      ]
     },
     {
       project_id: 'nike-oracle',
@@ -54,7 +65,9 @@ export default function Dsai(){
       people: [],
       total_hours: 0,
       last_tx: null,
-      key_risks: ['System stability issues', 'Staffing turnover risk']
+      key_risks: [
+        'Risk of going above budget / risk of overburden. Reason: Resources are charging more than the capacity/planned.'
+      ]
     },
     {
       project_id: 'legacy-closed',
@@ -62,7 +75,9 @@ export default function Dsai(){
       people: [],
       total_hours: 0,
       last_tx: null,
-      key_risks: []
+      key_risks: [
+        'Risk of project delay and project detail concerns. Reason: Engagement is near start date, and project phase not finalized.'
+      ]
     },
   ])
   // loading modal state
@@ -185,27 +200,37 @@ export default function Dsai(){
           '',
           `Risk identified: ${risk}`,
           '',
-          'Based on this risk, provide:',
-          '1. Risk level assessment (High/Medium/Low)',
-          '2. Smart and proactive mitigation strategy',
+          'Provide a smart, proactive, and detailed mitigation plan that is practical for delivery teams.',
+          'Keep it specific and implementation-oriented (owners, timeline, triggers, fallback).',
           '',
-          'Format your response as:',
+          'Format your response exactly as:',
           'LEVEL: [High|Medium|Low]',
-          'MITIGATION: [specific, actionable mitigation strategy]'
+          'MITIGATION:',
+          '- Immediate Actions (0-7 days): [2-3 concrete actions]',
+          '- Preventive Actions (8-30 days): [2-3 concrete actions]',
+          '- Early Warning Indicators: [2-3 measurable signals]',
+          '- Escalation & Contingency: [fallback plan if risk materializes]',
+          '- Recommended Owner & Due Date: [role + target date pattern]',
+          '- Success KPI: [one measurable KPI to track mitigation effectiveness]',
+          '',
+          'Constraints:',
+          '- Use concise bullet points.',
+          '- No generic advice.',
+          '- Maximum 220 words in mitigation section.'
         ].join('\n')
 
         const response = await runGeminiAnalysis(prompt, {
-          temperature: 0.3,
-          maxOutputTokens: 500
+          temperature: 0.35,
+          maxOutputTokens: 900
         })
 
         const responseText = String(response || '').trim()
         if (responseText) {
-          // Parse the response - capture everything after LEVEL: and MITIGATION:
+          // Parse multiline response robustly and keep complete mitigation details.
           const levelMatch = responseText.match(/LEVEL:\s*(High|Medium|Low)/i)
-          const mitigationMatch = responseText.match(/MITIGATION:\s*(.+)/is)
+          const mitigationMatch = responseText.match(/MITIGATION:\s*([\s\S]*)/i)
           
-          const riskLevel = levelMatch ? levelMatch[1] : 'High'
+          const riskLevel = levelMatch ? (levelMatch[1].charAt(0).toUpperCase() + levelMatch[1].slice(1).toLowerCase()) : 'High'
           const mitigationText = mitigationMatch ? mitigationMatch[1].trim() : responseText
 
           // Store AI-generated mitigation and risk level
@@ -746,56 +771,77 @@ export default function Dsai(){
     return n.replace(/[_\-\.]+/g, ' ').trim()
   }
 
-  // sample suggested mitigations to display in the DEX modal
-  const sampleMitigations = [
-    'Increase staffing buffer and cross-train team members.',
-    'Rebaseline schedule and remove non-critical scope.',
-    'Engage stakeholders to unblock external dependencies.',
-    'Run focused QA and code reviews on risky components.',
-    'Allocate contingency budget and prioritize critical tasks.'
-  ]
+  // baseline mitigations mapped to known key-risk patterns in the DEX modal
+  const baselineMitigations = {
+    staffingDelay: [
+      'Immediate (0-7 days): Finalize named resources and lock a minimum staffing baseline for each critical workstream; assign backup resources for top-2 critical roles.',
+      'Preventive (8-30 days): Build a skills matrix and cross-training plan to reduce single-point dependencies; set a weekly capacity review with PM and Delivery Manager.',
+      'Controls: Trigger escalation if any critical role remains unassigned 5 business days before phase start; track onboarding lead-time and assignment SLA as KPIs.'
+    ].join(' '),
+    phaseNotFinalized: [
+      'Immediate (0-7 days): Run a phase-definition workshop, freeze scope for current sprint, and publish signed phase entry/exit criteria with accountable owners.',
+      'Preventive (8-30 days): Introduce a rolling 2-sprint planning cadence and change-control board for phase adjustments with impact analysis (cost/time/resource).',
+      'Controls: Raise amber alert if phase plan is incomplete 7 days before start; contingency is to move non-critical deliverables to a deferred backlog to protect go-live milestones.'
+    ].join(' '),
+    startDelayNoCharges: [
+      'Immediate (0-7 days): Perform launch-readiness checkpoint (resource mobilization, environment readiness, access completion) and create a start-recovery micro-plan with daily checkpoints.',
+      'Preventive (8-30 days): Enforce pre-start gating checklist in PMO workflow and automate “no charge after start date” alerts for PM/Finance.',
+      'Controls: If no charges 3 business days after planned start, trigger executive escalation and activate contingency staffing from shared pool.'
+    ].join(' '),
+    budgetRateMismatch: [
+      'Immediate (0-7 days): Reconcile current charging levels vs baseline solution and rebalance role mix (senior/junior pyramid) without compromising critical quality outcomes.',
+      'Preventive (8-30 days): Add weekly burn-rate variance review by role level and require pre-approval for role-level substitutions above tolerance threshold.',
+      'Controls: Set variance guardrail (e.g., +/-10% by role cost); if breached twice consecutively, invoke corrective replan and budget recovery actions.'
+    ].join(' '),
+    budgetHeadcountOverrun: [
+      'Immediate (0-7 days): Validate active headcount against approved staffing plan and offboard or reallocate non-critical resources; prioritize critical-path staffing only.',
+      'Preventive (8-30 days): Introduce demand-capacity governance requiring PM + Finance sign-off before adding chargeable headcount.',
+      'Controls: Enable headcount-overrun alert when active charging resources exceed baseline by threshold; maintain weekly approved-vs-actual staffing dashboard.'
+    ].join(' '),
+    budgetExtendedCharging: [
+      'Immediate (0-7 days): Identify resources past planned end-date and either confirm extension with business justification or execute planned roll-off immediately.',
+      'Preventive (8-30 days): Add automated end-date reminder workflow at T-10 and T-3 days with mandatory extension approval routing.',
+      'Controls: KPI is percentage of resources charging beyond planned end-date; contingency is temporary charge freeze pending PMO review.'
+    ].join(' '),
+    overburdenOverbudget: [
+      'Immediate (0-7 days): Assess workload against planned capacity per resource, redistribute tasks, and cap overtime on non-critical work to prevent quality degradation.',
+      'Preventive (8-30 days): Implement utilization heatmap and resource-level capacity thresholds with weekly balancing actions by PM/DM.',
+      'Controls: Trigger intervention when utilization exceeds threshold for 2 consecutive weeks; contingency includes phased scope reduction or short-term augmentation.'
+    ].join(' '),
+    generic: [
+      'Immediate: assign a single owner, define containment actions, and set a 48-hour action checkpoint.',
+      'Preventive: establish weekly risk review with measurable indicators and update mitigation effectiveness log.',
+      'Controls: define escalation trigger and fallback plan if risk likelihood or impact worsens.'
+    ].join(' ')
+  }
 
   // base font/style for modal to keep typography uniform and slightly smaller
   const modalBaseFont = { fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial", fontSize:13, color:'#334155' }
 
   // smarter mitigation generation: heuristics that inspect the risk text and produce proactive, prioritized suggestions
   const generateMitigationForRisk = (risk) => {
-    if (!risk) return sampleMitigations[0]
+    if (!risk) return baselineMitigations.generic
     const text = String(risk).toLowerCase()
-    const suggestions = []
 
-    if (/(staff|resource|capacity|skill|onboard)/.test(text)) {
-      suggestions.push('Increase staffing buffer: cross-train team members, onboard short-term contractors, and create a skills matrix to reassign tasks quickly.')
-    }
-    if (/(scope|creep|requirements|change)/.test(text)) {
-      suggestions.push('Rebaseline schedule and apply strict change control: remove non-critical scope, run a rapid scope review with stakeholders, and freeze change for the next sprint.')
-    }
-    if (/(dependenc|external|vendor|blocked|third[- ]party)/.test(text)) {
-      suggestions.push('Escalate to stakeholders and vendors: secure commitments with SLAs, unblock dependencies, and parallelize work where possible to reduce critical path risk.')
-    }
-    if (/(qa|test|bug|quality|regress|defect)/.test(text)) {
-      suggestions.push('Run focused QA sprints and increase code-review coverage: add targeted automated tests, create a test-and-fix window, and pair-review risky modules.')
-    }
-    if (/(budget|cost|contingency|fund)/.test(text)) {
-      suggestions.push('Allocate contingency budget and reprioritize features: protect critical deliverables and pause low-value work until stability returns.')
-    }
-    if (/(late|delay|schedule|timeline|slippage)/.test(text)) {
-      suggestions.push('Fast-track the critical path: add resources to critical tasks, split work into parallel streams, and publish a clear recovery plan with owners and dates.')
-    }
-    if (/(security|vulnerab|auth|encrypt|compli|gdpr)/.test(text)) {
-      suggestions.push('Run security scans and engage the security team immediately: apply patches, close vulnerabilities, and put compensating controls in place.')
-    }
-    if (/(integrat|data|api|migration|etl)/.test(text)) {
-      suggestions.push('Improve integration stability: test end-to-end with representative data, add monitoring/alerts, and prepare rollback and mitigation scripts.')
-    }
+    // Explicit mapping for provided risk catalog
+    if (/project delay/.test(text) && /(staff|resource.*unnamed|unnamed)/.test(text)) return baselineMitigations.staffingDelay
+    if (/project delay/.test(text) && /(project detail|phase not final|phase.*not final)/.test(text)) return baselineMitigations.phaseNotFinalized
+    if (/project start delay/.test(text) || (/start date/.test(text) && /lapsed/.test(text) && /no actual charges/.test(text))) return baselineMitigations.startDelayNoCharges
+    if (/going above budget/.test(text) && /(level of resource charging|baseline solution)/.test(text)) return baselineMitigations.budgetRateMismatch
+    if (/going above budget/.test(text) && /(number of resources charging|estimated resources)/.test(text)) return baselineMitigations.budgetHeadcountOverrun
+    if (/going above budget/.test(text) && /(supposed to end|still continuing to charge)/.test(text)) return baselineMitigations.budgetExtendedCharging
+    if (/(overburden|capacity\/planned|charging more than the capacity)/.test(text)) return baselineMitigations.overburdenOverbudget
 
-    if (suggestions.length === 0) {
-      // generic, proactive approach when no keyword matches
-      suggestions.push('Triage the issue, assign a clear owner, perform a quick root-cause analysis, and set short, measurable remediation checkpoints (1-week cadence).')
-    }
+    // Keyword fallback for near matches
+    if (/(staff|resource|capacity|skill|onboard)/.test(text) && /(delay|start)/.test(text)) return baselineMitigations.staffingDelay
+    if (/(phase|detail|scope|requirements|change)/.test(text) && /(delay|start)/.test(text)) return baselineMitigations.phaseNotFinalized
+    if (/(no actual charges|lapsed)/.test(text)) return baselineMitigations.startDelayNoCharges
+    if (/(budget|cost)/.test(text) && /(level|baseline)/.test(text)) return baselineMitigations.budgetRateMismatch
+    if (/(budget|cost)/.test(text) && /(number of resources|estimated resources)/.test(text)) return baselineMitigations.budgetHeadcountOverrun
+    if (/(budget|cost)/.test(text) && /(end|continuing to charge|roll[- ]?off)/.test(text)) return baselineMitigations.budgetExtendedCharging
+    if (/(overburden|capacity|utilization)/.test(text)) return baselineMitigations.overburdenOverbudget
 
-    // return the top 1-2 suggestions concatenated for concise display
-    return suggestions.slice(0, 2).join(' — ')
+    return baselineMitigations.generic
   }
 
   // DEX dashboard derived metrics (filtered to onboarded projects only)
@@ -1519,7 +1565,7 @@ export default function Dsai(){
 
                                   {/* Suggested mitigation - AI generated */}
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
-                                    <div style={{fontSize:13, lineHeight:1.4}}>
+                                    <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>
                                       {aiMitigations[idx]?.mitigation || generateMitigationForRisk(rk)}
                                     </div>
                                   </td>
