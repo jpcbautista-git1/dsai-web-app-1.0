@@ -307,7 +307,7 @@ export default function Dsai(){
   const [dexViewAiMitigations, setDexViewAiMitigations] = React.useState({})
   const [dexViewGeneratingMitigations, setDexViewGeneratingMitigations] = React.useState(false)
   const [dexViewMitigationGenError, setDexViewMitigationGenError] = React.useState('')
-  const [dexViewIntegrateBaseline, setDexViewIntegrateBaseline] = React.useState(true)
+  const [dexViewIntegrateBaseline, setDexViewIntegrateBaseline] = React.useState(false)
   const [dexViewMitigationAssignments, setDexViewMitigationAssignments] = React.useState({})
   const [dexViewModalReadOnly, setDexViewModalReadOnly] = React.useState(false)
   const [dexViewSaveMessage, setDexViewSaveMessage] = React.useState('')
@@ -360,6 +360,13 @@ export default function Dsai(){
       setDexViewAiMitigations({})
       setDexViewModalReadOnly(true)
       setDexViewSaveMessage('')
+    }
+  }, [dexViewModalOpen, dexViewModalProject])
+
+  // auto-generate mitigations when DEX View modal opens
+  React.useEffect(() => {
+    if (dexViewModalOpen && dexViewModalProject && !dexViewGeneratingMitigations) {
+      handleGenerateViewMitigations()
     }
   }, [dexViewModalOpen, dexViewModalProject])
 
@@ -1201,12 +1208,12 @@ export default function Dsai(){
                 <div style={{overflowX:'auto'}}>
                   <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:13,tableLayout:'fixed'}} aria-label="DEX Projects">
                     <colgroup>
-                      <col style={{width:'20%'}} />
-                      <col style={{width:'14%'}} />
-                      <col style={{width:'8%'}} />
+                      <col style={{width:'25%'}} />
                       <col style={{width:'12%'}} />
-                      <col style={{width:'40%'}} />
-                      <col style={{width:'6%'}} />
+                      <col style={{width:'10%'}} />
+                      <col style={{width:'12%'}} />
+                      <col style={{width:'29%'}} />
+                      <col style={{width:'12%'}} />
                     </colgroup>
                     <thead>
                       <tr style={{textAlign:'left',color:'#6a7280',fontWeight:900,fontSize:12,borderBottom:'1px solid #e6e9f2'}}>
@@ -1224,9 +1231,9 @@ export default function Dsai(){
                       )}
                       {dexOnboardedProjects.map((p) => (
                         <tr key={p.project_id}>
-                          <td style={{padding:'12px 10px'}}>
-                            <div style={{display:'flex',alignItems:'center',gap:10}}>
-                              <div style={{width:36,height:36,borderRadius:999,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',border:'1px solid rgba(0,0,0,.06)',color:'#1f2937',fontWeight:900}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
+                          <td style={{padding:'12px 10px',verticalAlign:'top'}}>
+                            <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                              <div style={{width:36,height:36,borderRadius:999,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',border:'1px solid rgba(0,0,0,.06)',color:'#1f2937',fontWeight:900,marginTop:2}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
                               <div>
                                 <div style={{fontWeight:900}}>{p.project_name}</div>
                                 <div style={{fontSize:12,color:'#6a7280',marginTop:4}}>{p.project_id}</div>
@@ -1599,23 +1606,21 @@ export default function Dsai(){
                 <div style={{overflowX:'auto'}}>
                   <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:13,tableLayout:'fixed'}} aria-label="Projects">
                     <colgroup>
-                      <col style={{width:'20%'}} />
-                      <col style={{width:'13%'}} />
+                      <col style={{width:'22%'}} />
+                      <col style={{width:'14%'}} />
+                      <col style={{width:'11%'}} />
                       <col style={{width:'10%'}} />
-                      <col style={{width:'9%'}} />
-                      <col style={{width:'10%'}} />
-                      <col style={{width:'8%'}} />
-                      <col style={{width:'30%'}} />
+                      <col style={{width:'11%'}} />
+                      <col style={{width:'32%'}} />
                     </colgroup>
                     <thead>
                       <tr style={{textAlign:'left',color:'#6a7280',fontWeight:900,fontSize:12,borderBottom:'1px solid #e6e9f2'}}>
-                        <th style={{padding:'12px 10px'}}>Project</th>
-                        <th style={{padding:'12px 10px'}}>PM / DM</th>
-                        <th style={{padding:'12px 10px'}}>RAG Status</th>
-                        <th style={{padding:'12px 10px'}}>AI Risk</th>
-                        <th style={{padding:'12px 10px'}}>Sync</th>
-                        <th style={{padding:'12px 10px',verticalAlign:'top'}} aria-label="DEX actions" />
-                        <th style={{padding:'12px 10px',verticalAlign:'top',color:'#6a7280'}}>
+                        <th style={{padding:'12px 14px'}}>Project</th>
+                        <th style={{padding:'12px 14px'}}>PM / DM</th>
+                        <th style={{padding:'12px 14px',textAlign:'center'}}>RAG Status</th>
+                        <th style={{padding:'12px 14px',textAlign:'center'}}>AI Risk</th>
+                        <th style={{padding:'12px 14px',textAlign:'center'}}>Sync</th>
+                        <th style={{padding:'12px 14px',verticalAlign:'top',color:'#6a7280'}}>
                           Key Risks
                         </th>
                       </tr>
@@ -1624,13 +1629,13 @@ export default function Dsai(){
                       {projectSummaries.filter(p =>
                         dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)
                       ).length === 0 && (
-                        <tr><td colSpan={7} style={{padding:'24px 10px',color:'#6a7280'}}>No projects onboarded to DSAI yet.</td></tr>
+                        <tr><td colSpan={6} style={{padding:'24px 14px',color:'#6a7280'}}>No projects onboarded to DSAI yet.</td></tr>
                       )}
                       {projectSummaries.filter(p =>
                         dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)
                       ).map((p) => (
                         <tr key={p.project_id}>
-                          <td style={{padding:'12px 10px'}}>
+                          <td style={{padding:'14px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:10}}>
                               <div style={{width:36,height:36,borderRadius:999,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',border:'1px solid rgba(0,0,0,.06)',color:'#1f2937',fontWeight:900}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
                               <div>
@@ -1639,18 +1644,17 @@ export default function Dsai(){
                               </div>
                             </div>
                           </td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top'}}>{(p.people && p.people.map(x=>x.person).slice(0,2).join(' / ')) || ''}</td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff7ed',color:'#c2410c',fontWeight:900}}>—</span></td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff1f1',color:'#b91c1c',fontWeight:900}}>—</span></td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top',color:'#6a7280'}}>{p.last_tx || ''}</td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top',color:'#2a2a2c'}}>
-                            <ul style={{margin:0,paddingLeft:16}}>{/* placeholder risks */}
-                              <li>{p.total_hours} hrs</li>
-                            </ul>
-                          </td>
-                          <td style={{padding:'12px 10px',verticalAlign:'top'}}>
-                            <button onClick={() => openDexModal(p)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer'}}>DEX</button>
+                          <td style={{padding:'14px',verticalAlign:'middle'}}>{(p.people && p.people.map(x=>x.person).slice(0,2).join(' / ')) || ''}</td>
+                          <td style={{padding:'14px',verticalAlign:'middle',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff7ed',color:'#c2410c',fontWeight:900}}>—</span></td>
+                          <td style={{padding:'14px',verticalAlign:'middle',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff1f1',color:'#b91c1c',fontWeight:900}}>—</span></td>
+                          <td style={{padding:'14px',verticalAlign:'middle',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
+                          <td style={{padding:'14px',verticalAlign:'middle',color:'#2a2a2c'}}>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-start',gap:100,flexWrap:'wrap'}}>
+                              <ul style={{margin:0,paddingLeft:16}}>{/* placeholder risks */}
+                                <li>{p.total_hours} hrs</li>
+                              </ul>
+                              <button onClick={() => openDexModal(p)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer',flex:'0 0 auto',whiteSpace:'nowrap'}}>DEX</button>
+                            </div>
                           </td>
                         </tr>
                       ))}
