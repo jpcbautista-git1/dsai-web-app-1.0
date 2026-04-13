@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 
 const SAMPLE_PROJECTS = [
 	{
@@ -107,6 +107,38 @@ export default function Projects({ onOpen }) {
 		if (filter === 'all') return SAMPLE_PROJECTS
 		return SAMPLE_PROJECTS.filter((p) => p.status === filter)
 	}, [filter])
+
+	// onboarded set loaded from localStorage (saved by the DSAI onboard modal)
+	const [onboarded, setOnboarded] = useState(new Set())
+	useEffect(() => {
+		try {
+			const raw = localStorage.getItem('dsaiOnboard')
+			if (!raw) return
+			const payload = JSON.parse(raw)
+			const s = new Set()
+			if (Array.isArray(payload)) {
+				payload.forEach((it) => {
+					if (!it) return
+					if (it.projectName) s.add(it.projectName)
+					if (it.engagementName) s.add(it.engagementName)
+					if (it.engagementId) s.add(String(it.engagementId))
+					if (it.projectId) s.add(String(it.projectId))
+					if (it.title) s.add(it.title)
+					if (it.id) s.add(String(it.id))
+				})
+			} else if (payload && typeof payload === 'object') {
+				if (payload.projectName) s.add(payload.projectName)
+				if (payload.engagementName) s.add(payload.engagementName)
+				if (payload.engagementId) s.add(String(payload.engagementId))
+				if (payload.projectId) s.add(String(payload.projectId))
+				if (payload.title) s.add(payload.title)
+				if (payload.id) s.add(String(payload.id))
+			}
+			setOnboarded(s)
+		} catch (e) {
+			// ignore parse errors
+		}
+	}, [])
 
 	const pillStyle = (key) => ({
 		display: 'inline-flex',
@@ -320,6 +352,11 @@ export default function Projects({ onOpen }) {
 								title={p.title}
 							>
 								{p.title}
+								{(onboarded.has(p.id) || onboarded.has(p.title)) && (
+									<span style={{display:'inline-flex',alignItems:'center',gap:8,padding:'2px 8px',background:'#f3e8ff',color:'#6d28d9',borderRadius:999,fontSize:11,fontWeight:700,marginLeft:8}}>
+										On-boarded to DSAI
+									</span>
+								)}
 							</h3>
 
 							<div
@@ -416,25 +453,24 @@ export default function Projects({ onOpen }) {
 									paddingTop: 8,
 								}}
 							>
-								<span
-									className="chip-mini"
-									style={{
-										fontSize: 10,
-										padding: '4px 8px',
-										borderRadius: 999,
-										border: '1px solid #e5e7eb',
-										background: '#f9fafb',
-										color: '#111827',
-									}}
-								>
-									{p.chip}
-								</span>
-								<span
-									className="goto"
-									style={{ fontSize: 11, color: '#2563eb' }}
-								>
-									Open ›
-								</span>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+									<span
+										className="chip-mini"
+										style={{
+											fontSize: 10,
+											padding: '4px 8px',
+											borderRadius: 999,
+											border: '1px solid #e5e7eb',
+											background: '#f9fafb',
+											color: '#111827',
+										}}
+									>
+										{p.chip}
+									</span>
+								</div>
+								 <span className="goto" style={{ fontSize: 11, color: '#2563eb' }}>
+									 Open ›
+								 </span>
 							</div>
 						</a>
 					))}
