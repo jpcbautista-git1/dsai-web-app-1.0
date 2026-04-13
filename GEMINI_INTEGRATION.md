@@ -158,8 +158,8 @@ const response = await geminiChat(messages);
 1. **Set environment variables:**
    ```bash
    # Create .env file (already created for you!)
-   VITE_GEMINI_API_KEY=AIzaSyDbMQWZYvS2iKeptU1cAmvRkjMSC3w_Ero
-   VITE_GOOGLE_API_KEY=AIzaSyDbMQWZYvS2iKeptU1cAmvRkjMSC3w_Ero
+  VITE_GEMINI_API_KEY=your_api_key_here
+  VITE_GOOGLE_API_KEY=your_api_key_here
    ```
 
 2. **Start your React app:**
