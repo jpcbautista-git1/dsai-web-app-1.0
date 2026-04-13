@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const SAMPLE_PROJECTS = [
 	{
@@ -88,6 +89,7 @@ const SAMPLE_PROJECTS = [
 
 export default function Projects({ onOpen }) {
 	const [filter, setFilter] = useState('all')
+    const navigate = useNavigate()
 
 	const counts = useMemo(() => {
 		const counts = {
@@ -304,7 +306,10 @@ export default function Projects({ onOpen }) {
 							href="#"
 							onClick={(e) => {
 								e.preventDefault()
-								if (typeof onOpen === 'function') onOpen('sample')
+								// persist selected project for ProjectSample/details page to read
+								try { localStorage.setItem('dsaiSelectedProject', JSON.stringify(p)) } catch (err) {}
+								// navigate SPA to project details route
+								navigate(`/projects/${p.id}`)
 							}}
 							style={{
 								textDecoration: 'none',
@@ -468,9 +473,40 @@ export default function Projects({ onOpen }) {
 										{p.chip}
 									</span>
 								</div>
-								 <span className="goto" style={{ fontSize: 11, color: '#2563eb' }}>
-									 Open ›
-								 </span>
+								{/* Only show Open plan for projects onboarded to DSAI */}
+								{(onboarded.has(p.id) || onboarded.has(p.title)) ? (
+									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+										<button
+											onClick={(e) => {
+												e.preventDefault()
+												// persist selected project for ProjectSample/details page to read
+												try { localStorage.setItem('dsaiSelectedProject', JSON.stringify(p)) } catch (err) {}
+												// SPA navigate to project details
+												navigate(`/projects/${p.id}`)
+											}}
+											style={{
+												background: '#6d28d9',
+												color: '#fff',
+												padding: '6px 12px',
+												borderRadius: 8,
+												border: 'none',
+												fontSize: 13,
+												fontWeight: 700,
+												cursor: 'pointer',
+											}}
+										>
+											Open plan
+										</button>
+										<span className="goto" style={{ fontSize: 11, color: '#2563eb' }}>
+										 Open ›
+										</span>
+									</div>
+								) : (
+									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+										{/* placeholder when not onboarded: show nothing or a disabled indicator */}
+										<span style={{ fontSize: 12, color: '#9ca3af' }}>Not onboarded</span>
+									</div>
+								)}
 							</div>
 						</a>
 					))}

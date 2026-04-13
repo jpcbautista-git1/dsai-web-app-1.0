@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 import Home from './pages/Home'
@@ -12,42 +13,40 @@ import ReviewDashboard from './pages/ReviewDashboard'
 import ReviewReports from './pages/ReviewReports'
 import './index.css'
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  React.useEffect(() => {
+    const el = document.getElementById('app-content')
+    if (el) el.scrollTop = 0
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [pathname])
+  return null
+}
+
 export default function App() {
-  const [route, setRoute] = useState('home')
-
-  // navigation helper: set route and bring main content to top
-  const handleNavigate = (r) => {
-    setRoute(r)
-    // ensure scrolling happens after route change/render
-    requestAnimationFrame(() => {
-      const el = document.getElementById('app-content')
-      if (el) el.scrollTop = 0
-      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' })
-    })
-  }
-
-  function renderRoute() {
-    if (route === 'home') return <Home />
-    if (route === 'projects') return <Projects onOpen={(r) => setRoute(r === 'sample' ? 'project' : r)} />
-    if (route === 'project') return <ProjectSample />
-    if (route === 'dsai') return <Dsai />
-    if (route === 'metrics') return <Metrics />
-    if (route === 'process-audit') return <ProcessAudit />
-    if (route === 'voc') return <Voc />
-    if (route === 'review-dashboard') return <ReviewDashboard />
-    if (route === 'review-reports') return <ReviewReports />
-    return <Home />
-  }
-
   return (
-    <div style={{minHeight: '100vh', display: 'flex', flexDirection: 'column'}}>
-      <Topbar />
-      <div id="app-root" style={{ display: 'flex', flex: 1, minHeight: '0' }}>
-        <Sidebar onNavigate={handleNavigate} active={route} />
-        <div id="app-content" style={{ flex: 1, minWidth: 0 }}>
-          {renderRoute()}
+    <Router>
+      <div style={{minHeight: '100vh', display: 'flex', flexDirection: 'column'}}>
+        <Topbar />
+        <div id="app-root" style={{ display: 'flex', flex: 1, minHeight: '0' }}>
+          <Sidebar />
+          <div id="app-content" style={{ flex: 1, minWidth: 0 }}>
+            <ScrollToTop />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/:id" element={<ProjectSample />} />
+              <Route path="/dsai" element={<Dsai />} />
+              <Route path="/metrics" element={<Metrics />} />
+              <Route path="/process-audit" element={<ProcessAudit />} />
+              <Route path="/voc" element={<Voc />} />
+              <Route path="/review-dashboard" element={<ReviewDashboard />} />
+              <Route path="/review-reports" element={<ReviewReports />} />
+              <Route path="*" element={<Home />} />
+            </Routes>
+          </div>
         </div>
       </div>
-    </div>
+    </Router>
   )
 }

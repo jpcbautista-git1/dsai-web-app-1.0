@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 
 export default function ProjectSample(){
   const [activeTab, setActiveTab] = useState('basic')
@@ -41,6 +42,27 @@ export default function ProjectSample(){
   const [resourceErrors, setResourceErrors] = useState({})
   const [dsaiErrors, setDsaiErrors] = useState({})
 
+  // derive projectName from route param when present (moved to top-level hook)
+  const params = useParams()
+  useEffect(() => {
+    if (params && params.id) {
+      try {
+        const pretty = params.id.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+        setDsaiData(s => ({ ...s, projectName: pretty }))
+      } catch (e) { /* ignore */ }
+    } else {
+      // fallback: try selected project from localStorage
+      try {
+        const rawSel = localStorage.getItem('dsaiSelectedProject')
+        if (rawSel) {
+          const parsed = JSON.parse(rawSel)
+          const pName = parsed?.title || parsed?.name || parsed?.projectName || parsed?.id
+          if (pName) setDsaiData(s => ({ ...s, projectName: pName }))
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }, [params?.id])
+
   function validateModal(){
     const dErrors = {}
     const pErrors = {}
@@ -50,7 +72,6 @@ export default function ProjectSample(){
     // validate DSAI header fields
     if(!dsaiData.projectName || !dsaiData.projectName.trim()){ dErrors.projectName = 'Required'; valid = false }
     if(!dsaiData.engagementName || !dsaiData.engagementName.trim()){ dErrors.engagementName = 'Required'; valid = false }
-    // engagementId validation removed (no longer required)
 
     // validate phases
     phases.forEach(p => {
@@ -65,7 +86,6 @@ export default function ProjectSample(){
     // validate resources
     resources.forEach(r => {
       const errs = {}
-      // resource name and gpn are no longer required
       // make Level required
       if(!r.level || !String(r.level).trim()) { errs.level = 'Required'; valid = false }
       if(!r.start) { errs.start = 'Required'; valid = false }
@@ -458,7 +478,10 @@ export default function ProjectSample(){
           setDsaiData(s => ({ ...s, projectName: payload.projectName || s.projectName || '', engagementName: payload.engagementName || s.engagementName || '', engagementId: payload.engagementId || s.engagementId || '', startDate: payload.startDate || payload.start || s.startDate || '', endDate: payload.endDate || payload.end || s.endDate || '' }))
           if(Array.isArray(payload.phases) && payload.phases.length) setPhases(payload.phases)
           if(Array.isArray(payload.resources) && payload.resources.length) setResources(payload.resources)
+          // show the DSAI summary tab when onboard payload exists
           setDsaiOnboardOpen(false)
+          setModalOpen(false)
+          setActiveTab('dsai')
         }
       }
     }catch(e){ /* ignore */ }
@@ -554,47 +577,8 @@ export default function ProjectSample(){
                    </div>
 
                    <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="projectManager" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Project Manager <span style={{color:'#ef4444'}}>*</span></label>
-                     <select id="projectManager" name="projectManager" defaultValue="Thamarai Kannan Rajendran" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>Thamarai Kannan Rajendran</option>
-                       <option>Chou, Adrich</option>
-                     </select>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="primaryLocation" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Primary Location <span style={{color:'#ef4444'}}>*</span></label>
-                     <select id="primaryLocation" name="primaryLocation" defaultValue="India-Bangalore" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>India-Bangalore</option>
-                       <option>Philippines-Manila</option>
-                     </select>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="projectManagerDelegate" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Project Manager Delegate</label>
-                     <input id="projectManagerDelegate" name="projectManagerDelegate" type="text" defaultValue="Megha H Mathew" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="competencyHead" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Competency Head <span style={{color:'#ef4444'}}>*</span></label>
-                     <input id="competencyHead" name="competencyHead" type="text" defaultValue="Colobong, Mark Anthony" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="deliveryManager" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Delivery Manager <span style={{color:'#ef4444'}}>*</span></label>
-                     <input id="deliveryManager" name="deliveryManager" type="text" defaultValue="Peter Parker" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="subCompetency" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Sub Competency</label>
-                     <select id="subCompetency" name="subCompetency" defaultValue="--" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>--</option>
-                       <option>Analytics</option>
-                     </select>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="area" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Area <span style={{color:'#ef4444'}}>*</span></label>
-                     <select id="area" name="area" defaultValue="APAC" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
+                     <label htmlFor="deliveryRegion" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Delivery Region</label>
+                     <select id="deliveryRegion" name="deliveryRegion" defaultValue="APAC" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
                        <option>APAC</option>
                        <option>AMER</option>
                      </select>
