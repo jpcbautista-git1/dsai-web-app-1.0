@@ -36,6 +36,7 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<ProjectSample />} />
+              <Route path="/projects/:id/dsai-onboarding" element={<ProjectSample />} />
               <Route path="/dsai" element={<Dsai />} />
               <Route path="/metrics" element={<Metrics />} />
               <Route path="/process-audit" element={<ProcessAudit />} />

@@ -424,7 +424,10 @@ export default function Projects({ onOpen }) {
 							onClick={(e) => {
 								e.preventDefault()
 								// persist selected project for ProjectSample/details page to read
-								try { localStorage.setItem('dsaiSelectedProject', JSON.stringify(p)) } catch (err) {}
+								try {
+									localStorage.setItem('dsaiSelectedProject', JSON.stringify(p))
+									localStorage.setItem('dsaiProjectTargetTab', 'basic')
+								} catch (err) {}
 								// navigate SPA to project details route
 								navigate(`/projects/${p.id}`)
 							}}
@@ -475,7 +478,15 @@ export default function Projects({ onOpen }) {
 							>
 								{p.title}
 								{(onboarded.has(p.id) || onboarded.has(p.title)) && (
-									<span style={{display:'inline-flex',alignItems:'center',gap:8,padding:'2px 8px',background:'#f3e8ff',color:'#6d28d9',borderRadius:999,fontSize:11,fontWeight:700,marginLeft:8}}>
+									<span
+										onClick={(e) => {
+											e.preventDefault()
+											e.stopPropagation()
+											try { localStorage.setItem('dsaiSelectedProject', JSON.stringify(p)) } catch (err) {}
+											navigate(`/projects/${p.id}/dsai-onboarding`)
+										}}
+										style={{display:'inline-flex',alignItems:'center',gap:8,padding:'2px 8px',background:'#f3e8ff',color:'#6d28d9',borderRadius:999,fontSize:11,fontWeight:700,marginLeft:8,cursor:'pointer'}}
+									>
 										On-boarded to DSAI
 									</span>
 								)}
@@ -591,36 +602,8 @@ export default function Projects({ onOpen }) {
 									</span>
 								</div>
 								{/* Only show Open plan for projects onboarded to DSAI */}
-								{(onboarded.has(p.id) || onboarded.has(p.title)) ? (
+								{!(onboarded.has(p.id) || onboarded.has(p.title)) && (
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-										<button
-											onClick={(e) => {
-												e.preventDefault()
-												// persist selected project for ProjectSample/details page to read
-												try { localStorage.setItem('dsaiSelectedProject', JSON.stringify(p)) } catch (err) {}
-												// SPA navigate to project details
-												navigate(`/projects/${p.id}`)
-											}}
-											style={{
-												background: '#6d28d9',
-												color: '#fff',
-												padding: '6px 12px',
-												borderRadius: 8,
-												border: 'none',
-												fontSize: 13,
-												fontWeight: 700,
-												cursor: 'pointer',
-											}}
-										>
-											Open plan
-										</button>
-										<span className="goto" style={{ fontSize: 11, color: '#2563eb' }}>
-										 Open ›
-										</span>
-									</div>
-								) : (
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-										{/* placeholder when not onboarded: show nothing or a disabled indicator */}
 										<span style={{ fontSize: 12, color: '#9ca3af' }}>Not onboarded</span>
 									</div>
 								)}

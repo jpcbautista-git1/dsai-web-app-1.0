@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useLocation } from 'react-router-dom'
 
 export default function ProjectSample(){
   const [activeTab, setActiveTab] = useState('basic')
@@ -47,8 +47,21 @@ export default function ProjectSample(){
 
   // derive projectName from route param when present (moved to top-level hook)
   const params = useParams()
+  const location = useLocation()
   useEffect(() => {
     try {
+      const targetTab = localStorage.getItem('dsaiProjectTargetTab')
+      const isDsaiRoute = location.pathname.endsWith('/dsai-onboarding')
+      if (targetTab === 'dsai' || (!targetTab && isDsaiRoute)) {
+        setActiveTab('dsai')
+        setDsaiOnboardOpen(false)  // show summary, not inline form
+      } else if (targetTab === 'basic') {
+        setActiveTab('basic')
+      } else {
+        setActiveTab('basic')
+      }
+      localStorage.removeItem('dsaiProjectTargetTab')
+
       const rawSel = localStorage.getItem('dsaiSelectedProject')
       if (rawSel) {
         const parsed = JSON.parse(rawSel)
@@ -62,7 +75,7 @@ export default function ProjectSample(){
         setDsaiData(s => ({ ...s, projectName: pretty }))
       }
     } catch (e) { /* ignore */ }
-  }, [params?.id])
+  }, [params?.id, location.key])
 
   function validateModal(){
     const dErrors = {}
@@ -483,10 +496,8 @@ export default function ProjectSample(){
           setDsaiData(s => ({ ...s, projectName: payload.projectName || s.projectName || '', engagementName: payload.engagementName || s.engagementName || '', engagementId: payload.engagementId || s.engagementId || '', startDate: payload.startDate || payload.start || s.startDate || '', endDate: payload.endDate || payload.end || s.endDate || '' }))
           if(Array.isArray(payload.phases) && payload.phases.length) setPhases(payload.phases)
           if(Array.isArray(payload.resources) && payload.resources.length) setResources(payload.resources)
-          // show the DSAI summary tab when onboard payload exists
           setDsaiOnboardOpen(false)
           setModalOpen(false)
-          setActiveTab('dsai')
         }
       }
     }catch(e){ /* ignore */ }
