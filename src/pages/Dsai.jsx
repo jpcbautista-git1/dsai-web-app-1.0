@@ -69,8 +69,15 @@ export default function Dsai(){
   const [dexModalProject, setDexModalProject] = React.useState(null)
   const [dexSaveMessage, setDexSaveMessage] = React.useState('')
   const [dexModalReadOnly, setDexModalReadOnly] = React.useState(false)
-  const openDexModal = (project) => { setDexModalProject(project); setDexModalOpen(true) }
-  const closeDexModal = () => { setDexModalOpen(false); setDexModalProject(null); setDexModalReadOnly(false) }
+  const [dexValidationErrors, setDexValidationErrors] = React.useState({})
+  const openDexModal = (project) => { setDexModalProject(project); setDexModalReadOnly(true); setDexModalOpen(true) }
+  const closeDexModal = () => {
+    setDexModalOpen(false)
+    setDexModalProject(null)
+    setDexModalReadOnly(false)
+    setDexValidationErrors({})
+    setDexSaveMessage('')
+  }
 
   // mitigation assignment state for modal (owner selection + accept flag)
   const [mitigationAssignments, setMitigationAssignments] = React.useState({})
@@ -85,22 +92,56 @@ export default function Dsai(){
       const projectKey = dexModalProject.project_id || dexModalProject.project_name || 'unknown'
       const savedAssignments = savedByProject?.[projectKey] || {}
       setMitigationAssignments(savedAssignments)
-      setDexModalReadOnly(Object.keys(savedAssignments).length > 0)
+      setDexModalReadOnly(true)
+      setDexValidationErrors({})
     } catch (e) {
       setMitigationAssignments({})
-      setDexModalReadOnly(false)
+      setDexModalReadOnly(true)
+      setDexValidationErrors({})
     }
   }, [dexModalOpen, dexModalProject])
 
+  const validateDexModalAssignments = () => {
+    const errors = {}
+    const risks = dexModalProject?.key_risks || []
+
+    risks.forEach((_, idx) => {
+      const row = mitigationAssignments[idx] || {}
+      const rowErrors = {}
+      if (!String(row.actionsTaken || '').trim()) rowErrors.actionsTaken = 'Required'
+      if (!String(row.dueDate || '').trim()) rowErrors.dueDate = 'Required'
+      // Status dropdown defaults to Open in UI; treat it as selected even if user didn't change it.
+      if (!String(row.workflowStatus || 'Open').trim()) rowErrors.workflowStatus = 'Required'
+      if (Object.keys(rowErrors).length > 0) errors[idx] = rowErrors
+    })
+
+    setDexValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const saveDexModalAssignments = () => {
     if (!dexModalProject) return
+    if (!validateDexModalAssignments()) {
+      setDexSaveMessage('Please complete required fields')
+      setTimeout(() => setDexSaveMessage(''), 1800)
+      return
+    }
     try {
       const raw = localStorage.getItem(DEX_MODAL_SAVE_KEY)
       const savedByProject = raw ? JSON.parse(raw) : {}
       const projectKey = dexModalProject.project_id || dexModalProject.project_name || 'unknown'
-      savedByProject[projectKey] = mitigationAssignments
+      // Persist explicit workflowStatus so reopened rows keep the chosen/default value.
+      const risks = dexModalProject?.key_risks || []
+      const normalizedAssignments = { ...mitigationAssignments }
+      risks.forEach((_, idx) => {
+        const row = normalizedAssignments[idx] || {}
+        normalizedAssignments[idx] = { ...row, workflowStatus: row.workflowStatus || 'Open' }
+      })
+      savedByProject[projectKey] = normalizedAssignments
       localStorage.setItem(DEX_MODAL_SAVE_KEY, JSON.stringify(savedByProject))
+      setMitigationAssignments(normalizedAssignments)
       setDexModalReadOnly(true)
+      setDexValidationErrors({})
       setDexSaveMessage('Saved')
       setTimeout(() => setDexSaveMessage(''), 1400)
     } catch (e) {
@@ -895,7 +936,7 @@ export default function Dsai(){
                {/* DEX modal */}
                {dexModalOpen && (
                  <div style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'rgba(2,6,23,0.55)',zIndex:10000,padding:20}} role="dialog" aria-modal="true">
-                  <div style={{width:1200,maxWidth:'100%',maxHeight:'92%',overflow:'hidden',background:'#fff',borderRadius:12,padding:0,boxShadow:'0 20px 60px rgba(2,6,23,0.35)',border:'1px solid rgba(15,23,42,0.06)',display:'flex',flexDirection:'column',...modalBaseFont}}>
+                  <div style={{width:1300,maxWidth:'98vw',maxHeight:'92%',overflow:'hidden',background:'#fff',borderRadius:12,padding:0,boxShadow:'0 20px 60px rgba(2,6,23,0.35)',border:'1px solid rgba(15,23,42,0.06)',display:'flex',flexDirection:'column',...modalBaseFont}}>
 
                     {/* modal header */}
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #eef1f6'}}>
@@ -919,6 +960,9 @@ export default function Dsai(){
                         <button onClick={saveDexModalAssignments} aria-label="Save DEX actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:'pointer'}}>
                           Save
                         </button>
+                        <button onClick={() => setDexModalReadOnly(false)} aria-label="Edit DEX actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                          Edit
+                        </button>
                         {dexSaveMessage && <div style={{fontSize:12,color:dexSaveMessage === 'Saved' ? '#065f46' : '#b91c1c',fontWeight:700}}>{dexSaveMessage}</div>}
                         <button onClick={closeDexModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:'pointer'}}>Close</button>
                        </div>
@@ -938,11 +982,11 @@ export default function Dsai(){
                       <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
                         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,tableLayout:'fixed'}}>
                           <colgroup>
-                            <col style={{width:'25'}} />
+                            <col style={{width:'20'}} />
                             <col style={{width:'15%'}} />
-                            <col style={{width:'44%'}} />
-                            <col style={{width:'18%'}} />
-                            <col style={{width:'10%'}} />
+                            <col style={{width:'46%'}} />
+                            <col style={{width:'25%'}} />
+                            <col style={{width:'12%'}} />
                             <col style={{width:'10%'}} />
                           </colgroup>
                           <thead style={{background:'#f8fafc'}}>
@@ -950,9 +994,9 @@ export default function Dsai(){
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'30%'}}>Risk</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'14%'}}>Risk level</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'12%'}}>Actions Taken</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'10%'}}>Due Date</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'10%'}}>Status</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'12%'}}>Actions Taken <span style={{color:'#dc2626'}}>*</span></th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'10%'}}>Due Date <span style={{color:'#dc2626'}}>*</span></th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'18%'}}>Status <span style={{color:'#dc2626'}}>*</span></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -969,24 +1013,74 @@ export default function Dsai(){
 
                                   {/* Actions Taken */}
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
-                                    <textarea placeholder="Enter action" readOnly={dexModalReadOnly} value={mitigationAssignments[idx]?.actionsTaken || ''} onChange={(e) => setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), actionsTaken: e.target.value } }))} style={{width:'100%',minHeight:'80px',padding:'8px 10px',borderRadius:6,border:'1px solid #e6eef6',fontSize:12,boxSizing:'border-box',fontFamily:'inherit',resize:'vertical',background:dexModalReadOnly ? '#f8fafc' : '#fff'}} />
+                                    <textarea placeholder="Enter action" readOnly={dexModalReadOnly} value={mitigationAssignments[idx]?.actionsTaken || ''} onChange={(e) => {
+                                      const value = e.target.value
+                                      setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), actionsTaken: value } }))
+                                      setDexValidationErrors(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), actionsTaken: '' } }))
+                                    }} style={{width:'100%',minHeight:'80px',padding:'8px 10px',borderRadius:6,border:dexValidationErrors[idx]?.actionsTaken ? '1px solid #ef4444' : '1px solid #e6eef6',fontSize:12,boxSizing:'border-box',fontFamily:'inherit',resize:'vertical',background:dexModalReadOnly ? '#f8fafc' : '#fff'}} />
+                                    {dexValidationErrors[idx]?.actionsTaken && <div style={{marginTop:6,color:'#dc2626',fontSize:11,fontWeight:700}}>{dexValidationErrors[idx]?.actionsTaken}</div>}
                                   </td>
 
                                   {/* Due Date */}
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#6b7280',fontSize:12}}>
-                                    —
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
+                                    <input
+                                      type="date"
+                                      value={mitigationAssignments[idx]?.dueDate || ''}
+                                      disabled={dexModalReadOnly}
+                                      onChange={(e) => {
+                                        const value = e.target.value
+                                        setMitigationAssignments(prev => ({
+                                          ...prev,
+                                          [idx]: {
+                                            ...(prev[idx] || {}),
+                                            dueDate: value
+                                          }
+                                        }))
+                                        setDexValidationErrors(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), dueDate: '' } }))
+                                      }}
+                                      style={{
+                                        width:'140px',
+                                        maxWidth:'100%',
+                                        padding:'4px 6px',
+                                        borderRadius:6,
+                                        border:dexValidationErrors[idx]?.dueDate ? '1px solid #ef4444' : '1px solid #e6eef6',
+                                        fontSize:11,
+                                        background:dexModalReadOnly ? '#f8fafc' : '#fff'
+                                      }}
+                                    />
+                                    {dexValidationErrors[idx]?.dueDate && <div style={{marginTop:6,color:'#dc2626',fontSize:11,fontWeight:700}}>{dexValidationErrors[idx]?.dueDate}</div>}
                                   </td>
 
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'10%'}}>
-                                    {/* status badge: Accepted / Rejected / Deferred / Open */}
-                                    {(() => {
-                                      const ms = mitigationAssignments[idx] || {}
-                                      const st = ms.status || (ms.accepted ? 'accepted' : 'open')
-                                      if (st === 'accepted') return (<span style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#ecfdf5',color:'#065f46',fontWeight:700,fontSize:12}}>Accepted</span>)
-                                      if (st === 'rejected') return (<span title={ms.rejectedReason || ''} style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#fff1f2',color:'#9f1239',fontWeight:700,fontSize:12}}>Rejected</span>)
-                                      if (st === 'deferred') return (<span title={ms.deferUntil || ''} style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#fff7ed',color:'#92400e',fontWeight:700,fontSize:12}}>Deferred{ms.deferUntil ? ` • ${ms.deferUntil}` : ''}</span>)
-                                      return (<span style={{display:'inline-block',padding:'5px 8px',borderRadius:6,background:'#fff7ed',color:'#92400e',fontWeight:700,fontSize:12}}>Open</span>)
-                                    })()}
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'18%'}}>
+                                    <select
+                                      value={mitigationAssignments[idx]?.workflowStatus || 'Open'}
+                                      disabled={dexModalReadOnly}
+                                      onChange={(e) => {
+                                        const value = e.target.value
+                                        setMitigationAssignments(prev => ({
+                                          ...prev,
+                                          [idx]: {
+                                            ...(prev[idx] || {}),
+                                            workflowStatus: value
+                                          }
+                                        }))
+                                        setDexValidationErrors(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), workflowStatus: '' } }))
+                                      }}
+                                      style={{
+                                        width:'100%',
+                                        minWidth:130,
+                                        padding:'6px 8px',
+                                        borderRadius:6,
+                                        border:dexValidationErrors[idx]?.workflowStatus ? '1px solid #ef4444' : '1px solid #e6eef6',
+                                        fontSize:13,
+                                        background:dexModalReadOnly ? '#f8fafc' : '#fff'
+                                      }}
+                                    >
+                                      <option value="Open">Open</option>
+                                      <option value="In Progress">In Progress</option>
+                                      <option value="Closed">Closed</option>
+                                    </select>
+                                    {dexValidationErrors[idx]?.workflowStatus && <div style={{marginTop:6,color:'#dc2626',fontSize:11,fontWeight:700}}>{dexValidationErrors[idx]?.workflowStatus}</div>}
                                   </td>
                                 </tr>
                               ))
