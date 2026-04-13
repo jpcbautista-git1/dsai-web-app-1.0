@@ -193,6 +193,7 @@ export default function Dsai(){
       for (let idx = 0; idx < dexModalProject.key_risks.length; idx++) {
         const risk = dexModalProject.key_risks[idx]
         
+        const assessedLevel = inferRiskLevel(risk)
         const prompt = [
           'You are a Senior Project Delivery Risk Analyst with over 15 years of experience managing complex enterprise implementations across consulting, ERP, and digital transformation programmes.',
           'You are reviewing a flagged project risk and must produce a precise, senior-level mitigation plan that the Delivery Manager can act on immediately.',
@@ -202,6 +203,7 @@ export default function Dsai(){
           `Total Hours Charged: ${dexModalProject.total_hours || 0}h`,
           '',
           `Risk Identified: ${risk}`,
+          `Pre-assessed Risk Level: ${assessedLevel}`,
           '',
           'Before writing your mitigation, briefly consider the likely root cause and the business impact if this risk is left unaddressed.',
           'Then write a professional, actionable mitigation plan that a delivery team can execute this week.',
@@ -216,7 +218,7 @@ export default function Dsai(){
           '- Write in professional senior delivery language — no generic textbook advice.',
           '- Each paragraph must be specific, dense, and immediately actionable.',
           '- Do not use bullet points, numbered lists, or sub-headers inside the paragraphs.',
-          '- Maximum 300 words total across both paragraphs.'
+          '- Minimum 250 up to 500 words total across each paragraphs.'
         ].join('\n')
 
         const response = await runGeminiAnalysis(prompt, {
@@ -844,7 +846,21 @@ export default function Dsai(){
     return baselineMitigations.generic
   }
 
-  // Build a single, actionable mitigation plan by combining baseline controls with Gemini context.
+  // Infer risk level from risk text using same pattern logic as generateMitigationForRisk
+  const inferRiskLevel = (risk) => {
+    if (!risk) return 'Medium'
+    const text = String(risk).toLowerCase()
+    if (/project delay/.test(text) && /(staff|resource.*unnamed|unnamed)/.test(text)) return 'High'
+    if (/project delay/.test(text) && /(project detail|phase not final|phase.*not final)/.test(text)) return 'High'
+    if (/project start delay/.test(text) || (/start date/.test(text) && /lapsed/.test(text))) return 'High'
+    if (/going above budget/.test(text) && /(level of resource charging|baseline solution)/.test(text)) return 'Medium'
+    if (/going above budget/.test(text) && /(number of resources charging|estimated resources)/.test(text)) return 'High'
+    if (/going above budget/.test(text) && /(supposed to end|still continuing to charge)/.test(text)) return 'Medium'
+    if (/(overburden|capacity\/planned|charging more than the capacity)/.test(text)) return 'High'
+    if (/(staff|resource|capacity)/.test(text) && /(delay|start)/.test(text)) return 'High'
+    if (/(budget|cost)/.test(text)) return 'Medium'
+    return 'Medium'
+  }
   const buildSuggestedMitigation = (risk, aiMitigation) => {
     const baseline = generateMitigationForRisk(risk)
     const aiText = String(aiMitigation || '').trim()
@@ -1598,7 +1614,7 @@ export default function Dsai(){
                                     <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>
                                       {aiMitigations[idx]?.mitigation
                                         ? (dexIntegrateBaseline ? buildSuggestedMitigation(rk, aiMitigations[idx].mitigation) : aiMitigations[idx].mitigation)
-                                        : 'No suggested mitigation yet. Click "Generate Mitigations (Gemini)" to create an integrated recommendation.'}
+                                        : 'No suggested mitigation yet. Click "Generate Mitigations (Gemini)" to create an AI recommendation.'}
                                     </div>
                                   </td>
 
