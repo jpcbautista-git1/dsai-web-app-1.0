@@ -7,21 +7,61 @@ export default function Dsai(){
   const [parsedData, setParsedData] = useState(null)
   const [projectSummaries, setProjectSummaries] = React.useState([
     {
-      project_id: 'Globe ITSM',
-      project_name: 'Globe ITSM',
-      people: [ { person: 'Mark' }, { person: 'Carlo' } ],
-      total_hours: 24,
-      last_tx: '2h ago',
-      key_risks: [ 'Delayed staffing near phase start', 'Recent change variance detected' ]
+      project_id: 'website-redesign',
+      project_name: 'Website Redesign',
+      people: [ { person: 'Chou, Adrich' } ],
+      total_hours: 0,
+      last_tx: null,
+      key_risks: []
     },
     {
-      project_id: 'ServiceMgmt-01',
-      project_name: 'Service Management',
-      people: [ { person: 'Alex' } ],
-      total_hours: 8,
-      last_tx: '1d ago',
-      key_risks: [ 'Scope creep', 'Late dependencies' ]
-    }
+      project_id: 'sap-abap',
+      project_name: 'SAP ABAP Implementation',
+      people: [ { person: 'Santos, Aristotle' } ],
+      total_hours: 0,
+      last_tx: null,
+      key_risks: []
+    },
+    {
+      project_id: 'changi-soar',
+      project_name: 'Changi International Airport Group - SOAR',
+      people: [ { person: 'Lorilla, Miguel' } ],
+      total_hours: 0,
+      last_tx: null,
+      key_risks: []
+    },
+    {
+      project_id: 'bdo-spm',
+      project_name: 'BDO SPM Implementation',
+      people: [],
+      total_hours: 0,
+      last_tx: null,
+      key_risks: []
+    },
+    {
+      project_id: 'japan-css',
+      project_name: 'Japan CSS - Product Management Support.',
+      people: [],
+      total_hours: 0,
+      last_tx: null,
+      key_risks: []
+    },
+    {
+      project_id: 'nike-oracle',
+      project_name: 'NIKE Oracle Support',
+      people: [],
+      total_hours: 0,
+      last_tx: null,
+      key_risks: []
+    },
+    {
+      project_id: 'legacy-closed',
+      project_name: 'Legacy Project (Closed)',
+      people: [],
+      total_hours: 0,
+      last_tx: null,
+      key_risks: []
+    },
   ])
   // loading modal state
   const [loading, setLoading] = useState(false)
