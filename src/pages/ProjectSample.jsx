@@ -48,6 +48,94 @@ export default function ProjectSample(){
   // derive projectName from route param when present (moved to top-level hook)
   const params = useParams()
   const location = useLocation()
+  const DSAI_ONBOARD_KEY = 'dsaiOnboardByProject'
+  const currentProjectId = params?.id || selectedProject?.id || ''
+  const currentProjectTitle = selectedProject?.title || ''
+
+  function readDsaiOnboardMap(){
+    try {
+      const raw = localStorage.getItem(DSAI_ONBOARD_KEY)
+      if (!raw) return {}
+      const parsed = JSON.parse(raw)
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch (e) {
+      return {}
+    }
+  }
+
+  function writeDsaiOnboardMap(map){
+    try {
+      localStorage.setItem(DSAI_ONBOARD_KEY, JSON.stringify(map))
+    } catch (e) {
+      // ignore write errors
+    }
+  }
+
+  function readCurrentDsaiPayload(){
+    if (!currentProjectId) return null
+
+    const perProjectMap = readDsaiOnboardMap()
+    const existing = perProjectMap[currentProjectId]
+    if (existing) return existing
+
+    // Legacy migration: old storage used one global payload for all projects.
+    try {
+      const legacyRaw = localStorage.getItem('dsaiOnboard')
+      if (!legacyRaw) return null
+      const legacy = JSON.parse(legacyRaw)
+      if (!legacy || typeof legacy !== 'object') return null
+
+      const prettyId = currentProjectId.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      const matchesCurrentProject =
+        legacy.projectId === currentProjectId ||
+        (!!currentProjectTitle && (legacy.title === currentProjectTitle || legacy.projectName === currentProjectTitle)) ||
+        legacy.title === prettyId ||
+        legacy.projectName === prettyId
+
+      if (!matchesCurrentProject) return null
+
+      const migrated = {
+        ...legacy,
+        projectId: currentProjectId,
+        title: currentProjectTitle || legacy.title || legacy.projectName || '',
+      }
+      perProjectMap[currentProjectId] = migrated
+      writeDsaiOnboardMap(perProjectMap)
+      return migrated
+    } catch (e) {
+      return null
+    }
+  }
+
+  function upsertCurrentDsaiPayload(payload){
+    if (!currentProjectId) return
+    const map = readDsaiOnboardMap()
+    map[currentProjectId] = {
+      ...payload,
+      projectId: currentProjectId,
+      title: currentProjectTitle || payload.title || payload.projectName || '',
+    }
+    writeDsaiOnboardMap(map)
+  }
+
+  function clearCurrentDsaiPayload(){
+    if (!currentProjectId) return
+    const map = readDsaiOnboardMap()
+    if (Object.prototype.hasOwnProperty.call(map, currentProjectId)) {
+      delete map[currentProjectId]
+      writeDsaiOnboardMap(map)
+    }
+  }
+
+  function isOnboardedPayload(payload){
+    return !!(
+      payload &&
+      payload.onboarded === true &&
+      Array.isArray(payload.phases) && payload.phases.length > 0 &&
+      Array.isArray(payload.resources) && payload.resources.length > 0
+    )
+  }
+
   useEffect(() => {
     try {
       const targetTab = localStorage.getItem('dsaiProjectTargetTab')
@@ -91,6 +179,10 @@ export default function ProjectSample(){
     if(!dsaiData.endDate){ dErrors.endDate = 'Required'; valid = false }
     if(dsaiData.startDate && dsaiData.endDate && dsaiData.startDate > dsaiData.endDate){ dErrors.dateOrder = 'Start must be before End'; valid = false }
 
+    // onboarding requires a full plan from modal (at least one phase and one resource)
+    if(!Array.isArray(phases) || phases.length === 0){ dErrors.phases = 'At least one phase is required'; valid = false }
+    if(!Array.isArray(resources) || resources.length === 0){ dErrors.resources = 'At least one resource is required'; valid = false }
+
     // validate phases
     phases.forEach(p => {
       const errs = {}
@@ -121,10 +213,10 @@ export default function ProjectSample(){
   function handleSaveDsai(){
     const ok = validateModal()
     if(ok){
-      // persist dsai payload (dsaiData + phases + resources) to localStorage and mark as onboarded
+      // persist dsai payload (dsaiData + phases + resources) per-project and mark as onboarded
       try{
         const payload = { ...dsaiData, phases, resources, onboarded: true, savedAt: new Date().toISOString() }
-        localStorage.setItem('dsaiOnboard', JSON.stringify(payload))
+        upsertCurrentDsaiPayload(payload)
       }catch(e){ console.error('Failed to persist DSAI onboard', e) }
 
       // update UI state to reflect saved/onboarded status
@@ -166,15 +258,13 @@ export default function ProjectSample(){
       return
     }
 
-    // persist full payload (dsaiData + phases + resources) and mark onboarded
+    // Inline save stores draft header values only. It does not mark project as onboarded.
     try{
-      const payload = { ...dsaiData, phases, resources, onboarded: true, savedAt: new Date().toISOString() }
-      localStorage.setItem('dsaiOnboard', JSON.stringify(payload))
-      setDsaiOnboardSaved(true)
-      setDsaiInlineMessage('Saved successfully')
+      const payload = { ...dsaiData, phases, resources, onboarded: false, savedAt: new Date().toISOString() }
+      upsertCurrentDsaiPayload(payload)
+      setDsaiOnboardSaved(false)
+      setDsaiInlineMessage('Draft saved. Complete On-Board in modal to mark as onboarded.')
       setTimeout(()=>setDsaiInlineMessage(''),3000)
-      // close inline form and show summary
-      setDsaiOnboardOpen(false)
       // clear validation errors
       setDsaiErrors({})
       setPhaseErrors({})
@@ -193,10 +283,13 @@ export default function ProjectSample(){
     setPhases([])
     setResources([])
     setDsaiOnboardSaved(false)
+    setDsaiErrors({})
+    setPhaseErrors({})
+    setResourceErrors({})
     setDsaiInlineMessage('Cleared')
     setTimeout(()=>setDsaiInlineMessage(''),2500)
-    // also remove persisted prototype payload
-    try{ localStorage.removeItem('dsaiOnboard') }catch(e){ /* ignore */ }
+    // remove only this project's persisted payload
+    clearCurrentDsaiPayload()
   }
 
   // Simple rate card and helpers for summary cost calculation (used by saved summary)
@@ -484,24 +577,23 @@ export default function ProjectSample(){
     )
   }
 
-  // Load saved onboard payload (if any) so summary renders immediately after Save
+  // Load saved onboard payload for the current project only.
   React.useEffect(()=>{
     try{
-      const raw = localStorage.getItem('dsaiOnboard')
-      if(raw){
-        const payload = JSON.parse(raw)
-        if(payload){
-          setDsaiOnboardSaved(!!payload.onboarded || true)
-          // keep existing dsaiData values unless payload supplies them
-          setDsaiData(s => ({ ...s, projectName: payload.projectName || s.projectName || '', engagementName: payload.engagementName || s.engagementName || '', engagementId: payload.engagementId || s.engagementId || '', startDate: payload.startDate || payload.start || s.startDate || '', endDate: payload.endDate || payload.end || s.endDate || '' }))
-          if(Array.isArray(payload.phases) && payload.phases.length) setPhases(payload.phases)
-          if(Array.isArray(payload.resources) && payload.resources.length) setResources(payload.resources)
-          setDsaiOnboardOpen(false)
-          setModalOpen(false)
-        }
+      const payload = readCurrentDsaiPayload()
+      if(payload){
+        setDsaiOnboardSaved(isOnboardedPayload(payload))
+        // keep existing dsaiData values unless payload supplies them
+        setDsaiData(s => ({ ...s, projectName: payload.projectName || s.projectName || '', engagementName: payload.engagementName || s.engagementName || '', engagementId: payload.engagementId || s.engagementId || '', startDate: payload.startDate || payload.start || s.startDate || '', endDate: payload.endDate || payload.end || s.endDate || '' }))
+        setPhases(Array.isArray(payload.phases) ? payload.phases : [])
+        setResources(Array.isArray(payload.resources) ? payload.resources : [])
+        setDsaiOnboardOpen(false)
+        setModalOpen(false)
+      } else {
+        setDsaiOnboardSaved(false)
       }
     }catch(e){ /* ignore */ }
-  }, [])
+  }, [currentProjectId, currentProjectTitle])
 
   // compute per-resource costs and estimated total for the summary view
   const resourceCosts = resources.map(r => {
@@ -546,7 +638,7 @@ export default function ProjectSample(){
             <button onClick={()=>setActiveTab('tier')} aria-selected={activeTab==='tier'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='tier' ? '#eef2ff' : '#fafafa',color: activeTab==='tier' ? '#4338ca' : '#374151',cursor:'pointer'}}>Tier Classification</button>
 
             {/* DSAI tab (matches original HTML id for scripts) */}
-            <button id="tab-dsai" onClick={()=>{ setActiveTab('dsai'); if(!dsaiOnboardSaved) setDsaiOnboardOpen(true); }} aria-selected={activeTab==='dsai'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='dsai' ? '#550a8a' : '#6a0dad',color:'#fff',cursor:'pointer'}}>{dsaiOnboardSaved ? 'DSAI Plan' : 'Onboard to DSAI'}</button>
+            <button id="tab-dsai" onClick={()=>{ setActiveTab('dsai'); if(!dsaiOnboardSaved) setDsaiOnboardOpen(true); }} aria-selected={activeTab==='dsai'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='dsai' ? '#550a8a' : '#6a0dad',color:'#fff',cursor:'pointer'}}>{dsaiOnboardSaved ? 'DSAI Onboarding' : 'Onboard to DSAI'}</button>
 
             <div style={{flex:1}} />
             {/* removed header onboard button — Onboard button is placed inside the DSAI panel to preserve original DOM id (btnOnboard) */}
@@ -739,9 +831,9 @@ export default function ProjectSample(){
                   </div>
 
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:18}}>
-                    <button onClick={()=>{ console.log('Open DSAI modal', dsaiData); setModalOpen(true); }} style={{padding:'10px 14px',background:'#6a0dad',border:'none',color:'#fff',borderRadius:8,fontWeight:800,cursor:'pointer'}}>On-Board</button>
+                    <button onClick={()=>{ console.log('Open DSAI modal', dsaiData); setModalOpen(true); }} style={{padding:'10px 14px',background:'#6a0dad',border:'none',color:'#fff',borderRadius:8,fontWeight:800,cursor:'pointer'}}>Onboard</button>
                     <div style={{display:'flex',gap:10,alignItems:'center'}}>
-                      <button onClick={()=>{ try{ localStorage.removeItem('dsaiOnboard'); setDsaiData({ projectName:'', engagementName:'', engagementId:'', startDate:'', endDate:'' }); setDsaiOnboardSaved(false); setDsaiErrors({}); setDsaiInlineMessage('Cleared') ; setTimeout(()=>setDsaiInlineMessage(''),2000) }catch(e){} }} style={{padding:'10px 14px',background:'#ef4444',border:'none',color:'#fff',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
+                      <button onClick={clearDsaiInline} style={{padding:'10px 14px',background:'#ef4444',border:'none',color:'#fff',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
                       <button onClick={handleInlineSaveDsai} style={{padding:'10px 14px',background:'#ffd200',border:'none',color:'#111827',borderRadius:8,fontWeight:800,cursor:'pointer'}}>Save</button>
                       {dsaiInlineMessage && (
                         <div style={{marginLeft:12,background:'#ecfdf5',color:'#065f46',padding:'8px 12px',borderRadius:8,fontWeight:700}}>{dsaiInlineMessage}</div>

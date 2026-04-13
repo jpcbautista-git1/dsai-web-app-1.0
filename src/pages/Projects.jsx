@@ -229,29 +229,25 @@ export default function Projects({ onOpen }) {
 
 	// onboarded set loaded from localStorage (saved by the DSAI onboard modal)
 	const [onboarded, setOnboarded] = useState(new Set())
+	const isOnboardedPayload = (value) => {
+		return !!(
+			value &&
+			value.onboarded === true &&
+			Array.isArray(value.phases) && value.phases.length > 0 &&
+			Array.isArray(value.resources) && value.resources.length > 0
+		)
+	}
 	useEffect(() => {
 		try {
-			const raw = localStorage.getItem('dsaiOnboard')
+			const raw = localStorage.getItem('dsaiOnboardByProject')
 			if (!raw) return
 			const payload = JSON.parse(raw)
 			const s = new Set()
-			if (Array.isArray(payload)) {
-				payload.forEach((it) => {
-					if (!it) return
-					if (it.projectName) s.add(it.projectName)
-					if (it.engagementName) s.add(it.engagementName)
-					if (it.engagementId) s.add(String(it.engagementId))
-					if (it.projectId) s.add(String(it.projectId))
-					if (it.title) s.add(it.title)
-					if (it.id) s.add(String(it.id))
+			if (payload && typeof payload === 'object') {
+				Object.entries(payload).forEach(([projectId, value]) => {
+					if (!value || typeof value !== 'object') return
+					if (isOnboardedPayload(value)) s.add(String(projectId))
 				})
-			} else if (payload && typeof payload === 'object') {
-				if (payload.projectName) s.add(payload.projectName)
-				if (payload.engagementName) s.add(payload.engagementName)
-				if (payload.engagementId) s.add(String(payload.engagementId))
-				if (payload.projectId) s.add(String(payload.projectId))
-				if (payload.title) s.add(payload.title)
-				if (payload.id) s.add(String(payload.id))
 			}
 			setOnboarded(s)
 		} catch (e) {
@@ -477,7 +473,7 @@ export default function Projects({ onOpen }) {
 								title={p.title}
 							>
 								{p.title}
-								{(onboarded.has(p.id) || onboarded.has(p.title)) && (
+								{onboarded.has(p.id) && (
 									<span
 										onClick={(e) => {
 											e.preventDefault()
@@ -487,7 +483,7 @@ export default function Projects({ onOpen }) {
 										}}
 										style={{display:'inline-flex',alignItems:'center',gap:8,padding:'2px 8px',background:'#f3e8ff',color:'#6d28d9',borderRadius:999,fontSize:11,fontWeight:700,marginLeft:8,cursor:'pointer'}}
 									>
-										On-boarded to DSAI
+										Onboarded to DSAI
 									</span>
 								)}
 							</h3>
@@ -602,7 +598,7 @@ export default function Projects({ onOpen }) {
 									</span>
 								</div>
 								{/* Only show Open plan for projects onboarded to DSAI */}
-								{!(onboarded.has(p.id) || onboarded.has(p.title)) && (
+								{!onboarded.has(p.id) && (
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 										<span style={{ fontSize: 12, color: '#9ca3af' }}>Not onboarded</span>
 									</div>
