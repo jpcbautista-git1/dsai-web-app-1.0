@@ -111,22 +111,42 @@ export default function ProjectSample(){
   }
 
   function handleInlineSaveDsai(){
+    // Inline save: validate only fields present in the inline form (projectName, dates).
     const errs = {}
-    if(!dsaiData.projectName || !dsaiData.projectName.trim()){ errs.projectName = 'Required' }
-    if(!dsaiData.engagementName || !dsaiData.engagementName.trim()){ errs.engagementName = 'Required' }
-    // engagementId is no longer required for inline save
+    if(!dsaiData.projectName || !dsaiData.projectName.trim()) { errs.projectName = 'Required' }
+    if(!dsaiData.startDate) { errs.startDate = 'Required' }
+    if(!dsaiData.endDate) { errs.endDate = 'Required' }
+    if(dsaiData.startDate && dsaiData.endDate && dsaiData.startDate > dsaiData.endDate) { errs.dateOrder = 'Start must be before End' }
+
     setDsaiErrors(errs)
     if(Object.keys(errs).length){
-      const el = document.querySelector('.invalid')
+      const el = document.querySelector('.invalid') || document.getElementById('inlineStartDate') || document.getElementById('inlineEndDate')
       if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'})
+      // show brief inline message
+      setDsaiInlineMessage('Please fix required fields')
+      setTimeout(()=>setDsaiInlineMessage(''),2500)
       return
     }
-    // persist to localStorage for now (prototype)
-    try{ localStorage.setItem('dsaiOnboard', JSON.stringify(dsaiData)) }catch(e){ /* ignore */ }
-    setDsaiOnboardSaved(true)
-    setDsaiInlineMessage('Saved successfully')
-    setTimeout(()=>setDsaiInlineMessage(''),3000)
-    console.log('Inline DSAI saved', dsaiData)
+
+    // persist full payload (dsaiData + phases + resources) and mark onboarded
+    try{
+      const payload = { ...dsaiData, phases, resources, onboarded: true, savedAt: new Date().toISOString() }
+      localStorage.setItem('dsaiOnboard', JSON.stringify(payload))
+      setDsaiOnboardSaved(true)
+      setDsaiInlineMessage('Saved successfully')
+      setTimeout(()=>setDsaiInlineMessage(''),3000)
+      // close inline form and show summary
+      setDsaiOnboardOpen(false)
+      // clear validation errors
+      setDsaiErrors({})
+      setPhaseErrors({})
+      setResourceErrors({})
+      console.log('Inline DSAI saved', payload)
+    }catch(e){
+      console.error('Failed to persist inline DSAI onboard', e)
+      setDsaiInlineMessage('Save failed')
+      setTimeout(()=>setDsaiInlineMessage(''),3000)
+    }
   }
 
   // Clear inline DSAI form, phases and resources (used by the Clear button)
@@ -556,7 +576,7 @@ export default function ProjectSample(){
 
                    <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
                      <label htmlFor="competencyHead" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Competency Head <span style={{color:'#ef4444'}}>*</span></label>
-                     <input id="competencyHead" name="competencyHead" type="text" defaultValue="Dela Cruz, Juan" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
+                     <input id="competencyHead" name="competencyHead" type="text" defaultValue="Colobong, Mark Anthony" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
                    </div>
 
                    <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
@@ -864,59 +884,59 @@ export default function ProjectSample(){
                                  <div style={{color:'#9ca3af'}}>No resources for this phase.</div>
                                ) : (
                                  resources.filter(r=>r.phaseId === p.id).map(r => (
-                                   <div key={r.id} style={{background:'#fff',padding:12,borderRadius:8,marginBottom:12}}>
-                                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                       <div>
-                                         <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
-                                         <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-                                       </div>
+                                  <div key={r.id} style={{background:'#fff',padding:12,borderRadius:8,marginBottom:12}}>
+                                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                      <div>
+                                        <label style={{fontWeight:700}}>Resource Name <span style={{color:'#ef4444'}}>*</span></label>
+                                        <input className={"resource-name " + (resourceErrors[r.id]?.name ? 'invalid' : '')} value={r.name} onChange={(e)=>updateResource(r.id,{name:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.name ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                      </div>
 
-                                       <div>
-                                         <label style={{fontWeight:700}}>GPN</label>
-                                         <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-                                       </div>
+                                      <div>
+                                        <label style={{fontWeight:700}}>GPN</label>
+                                        <input className={"resource-gpn " + (resourceErrors[r.id]?.gpn ? 'invalid' : '')} value={r.gpn || ''} onChange={(e)=>updateResource(r.id,{gpn:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.gpn ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                      </div>
 
-                                       <div>
-                                         <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
-                                         <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}}>
-                                           <option>Partner</option>
-                                           <option>Executive Director</option>
-                                           <option>Associate Director</option>
-                                           <option>Senior Manager</option>
-                                           <option>Manager</option>
-                                           <option>Senior 3</option>
-                                           <option>Senior 1-2</option>
-                                           <option>Staff 2-3</option>
-                                           <option>Staff 1</option>
-                                         </select>
-                                       </div>
+                                      <div>
+                                        <label style={{fontWeight:700}}>Level <span style={{color:'#ef4444'}}>*</span></label>
+                                        <select className={"resource-level " + (resourceErrors[r.id]?.level ? 'invalid' : '')} value={r.level} onChange={(e)=>updateResource(r.id,{level:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.level ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}}>
+                                          <option>Partner</option>
+                                          <option>Executive Director</option>
+                                          <option>Associate Director</option>
+                                          <option>Senior Manager</option>
+                                          <option>Manager</option>
+                                          <option>Senior 3</option>
+                                          <option>Senior 1-2</option>
+                                          <option>Staff 2-3</option>
+                                          <option>Staff 1</option>
+                                        </select>
+                                      </div>
 
-                                       <div>
-                                         <label style={{fontWeight:700}}>Location</label>
-                                         <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
-                                           <option>Philippines</option>
-                                           <option>India</option>
-                                           <option>Australia</option>
-                                         </select>
-                                       </div>
+                                      <div>
+                                        <label style={{fontWeight:700}}>Location</label>
+                                        <select className="resource-location" value={r.location} onChange={(e)=>updateResource(r.id,{location:e.target.value})} style={{width:'100%',padding:8,borderRadius:8,border:'1px solid #e7e9ee',background:'#fff'}}>
+                                          <option>Philippines</option>
+                                          <option>India</option>
+                                          <option>Australia</option>
+                                        </select>
+                                      </div>
 
-                                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                                         <div>
-                                           <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                                           <input id={`resource-start-${r.id}`} className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} min={todayIso} onClick={()=>{ const el = document.getElementById(`resource-start-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
-                                         </div>
-                                         <div>
-                                           <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
-                                           <input id={`resource-end-${r.id}`} className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={r.start || todayIso} onClick={()=>{ if(!r.start) return; const el = document.getElementById(`resource-end-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} readOnly={!r.start} title={!r.start ? 'Set start date first' : ''} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background: !r.start ? '#f3f4f6' : '#fff'}} />
-                                         </div>
-                                       </div>
+                                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                                        <div>
+                                          <label style={{fontWeight:700}}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
+                                          <input id={`resource-start-${r.id}`} className={"resource-start " + (resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.start} onChange={(e)=>updateResource(r.id,{start:e.target.value})} min={todayIso} onClick={()=>{ const el = document.getElementById(`resource-start-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.start || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background:'#fff'}} />
+                                        </div>
+                                        <div>
+                                          <label style={{fontWeight:700}}>End Date <span style={{color:'#ef4444'}}>*</span></label>
+                                          <input id={`resource-end-${r.id}`} className={"resource-end " + (resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? 'invalid' : '')} type="date" value={r.end} onChange={(e)=>updateResource(r.id,{end:e.target.value})} min={r.start || todayIso} onClick={()=>{ if(!r.start) return; const el = document.getElementById(`resource-end-${r.id}`); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} readOnly={!r.start} title={!r.start ? 'Set start date first' : ''} style={{width:'100%',padding:8,borderRadius:8,border: resourceErrors[r.id]?.end || resourceErrors[r.id]?.order ? '1px solid #ef4444' : '1px solid #e7e9ee',background: !r.start ? '#f3f4f6' : '#fff'}} />
+                                        </div>
+                                      </div>
 
-                                       <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
-                                         <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
-                                       </div>
-                                     </div>
-                                   </div>
-                                 ))
+                                      <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
+                                        <button className="remove-resource btn" onClick={()=>removeResource(r.id)} style={{background:'#fff',border:'1px solid #e9ecef',padding:'8px 12px',borderRadius:8, cursor:'pointer'}}>Remove</button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
                                )}
                              </div>
                            </div>

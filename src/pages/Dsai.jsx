@@ -581,20 +581,20 @@ export default function Dsai(){
 
               {/* KPI cards */}
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:12}}>
-                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Total Projects</div>
-                  <div style={{fontSize:22,fontWeight:900,color:'var(--text-h)',marginTop:6}}>{dexTotalProjects}</div>
+                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Total Projects</div>
+                  <div style={{fontSize:22,fontWeight:900,color:'#2a2f36',marginTop:6}}>{dexTotalProjects}</div>
                 </div>
-                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Projects At Risk</div>
+                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Projects At Risk</div>
                   <div style={{fontSize:22,fontWeight:900,color:'#b91c1c',marginTop:6}}>{dexAtRisk}</div>
                 </div>
-                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Synced</div>
+                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Synced</div>
                   <div style={{fontSize:22,fontWeight:900,color:'#15803d',marginTop:6}}>{dexSynced}</div>
                 </div>
-                <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>Avg Hours</div>
+                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
+                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Avg Hours</div>
                   <div style={{fontSize:22,fontWeight:900,color:'#f97316',marginTop:6}}>{dexAvgHours}</div>
                 </div>
               </div>
@@ -603,7 +603,7 @@ export default function Dsai(){
                 <div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
                     {projectSummaries.map(p => (
-                      <div key={p.project_id} style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:10}}>
+                      <div key={p.project_id} style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:10}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                           <div style={{display:'flex',gap:12,alignItems:'center'}}>
                             <div style={{width:44,height:44,borderRadius:10,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',fontWeight:800,color:'var(--text-h)'}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
@@ -638,7 +638,7 @@ export default function Dsai(){
                 </div>
 
                 <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                  <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:12}}>
+                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12}}>
                     <div style={{fontWeight:800,marginBottom:8,color:'var(--text-h)'}}>Risk Categories</div>
                     <div>
                       {Object.keys(dexRiskCategories).length > 0 ? Object.entries(dexRiskCategories).map(([cat,count]) => (
@@ -650,7 +650,7 @@ export default function Dsai(){
                     </div>
                   </div>
 
-                  <div style={{background:'var(--card-bg)',border:`1px solid var(--card-border)`,borderRadius:12,padding:12}}>
+                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12}}>
                     <div style={{fontWeight:800,marginBottom:8,color:'var(--text-h)'}}>Top Projects</div>
                     <div style={{display:'grid',gap:8}}>
                       {dexTopProjects.map(p => (
