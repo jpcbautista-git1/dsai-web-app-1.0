@@ -1788,21 +1788,21 @@ export default function Dsai(){
                       <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
                         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,tableLayout:'fixed'}}>
                           <colgroup>
-                            <col style={{width:'20'}} />
-                            <col style={{width:'15%'}} />
-                            <col style={{width:'46%'}} />
-                            <col style={{width:'25%'}} />
-                            <col style={{width:'12%'}} />
+                            <col style={{width:'23%'}} />
+                            <col style={{width:'11%'}} />
+                            <col style={{width:'28%'}} />
+                            <col style={{width:'16%'}} />
                             <col style={{width:'10%'}} />
+                            <col style={{width:'12%'}} />
                           </colgroup>
                           <thead style={{background:'#f8fafc'}}>
                             <tr style={{textAlign:'left'}}>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'30%'}}>Risk</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'14%'}}>Risk level</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Risk</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Risk level</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'12%'}}>Actions Taken <span style={{color:'#dc2626'}}>*</span></th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'10%'}}>Due Date <span style={{color:'#dc2626'}}>*</span></th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'18%'}}>Status <span style={{color:'#dc2626'}}>*</span></th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Actions Taken <span style={{color:'#dc2626'}}>*</span></th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Due Date <span style={{color:'#dc2626'}}>*</span></th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Status <span style={{color:'#dc2626'}}>*</span></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1810,7 +1810,7 @@ export default function Dsai(){
                               dexModalPublishedItems.map((item, idx) => (
                                 <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{item.risk}</td>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
                                     {(() => {
                                       const level = item.riskLevel || 'High'
                                       const bgColor = level === 'High' ? '#fff7ed' : level === 'Low' ? '#ecfdf5' : '#fef3c7'
@@ -1856,19 +1856,20 @@ export default function Dsai(){
                                         setDexValidationErrors(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), dueDate: '' } }))
                                       }}
                                       style={{
-                                        width:'140px',
-                                        maxWidth:'100%',
+                                        width:'100%',
+                                        minWidth:0,
                                         padding:'4px 6px',
                                         borderRadius:6,
                                         border:dexValidationErrors[idx]?.dueDate ? '1px solid #ef4444' : '1px solid #e6eef6',
                                         fontSize:11,
+                                        boxSizing:'border-box',
                                         background:(dexModalReadOnly || dexGeneratingMitigations) ? '#f8fafc' : '#fff'
                                       }}
                                     />
                                     {dexValidationErrors[idx]?.dueDate && <div style={{marginTop:6,color:'#dc2626',fontSize:11,fontWeight:700}}>{dexValidationErrors[idx]?.dueDate}</div>}
                                   </td>
 
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'18%'}}>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
                                     <select
                                       value={mitigationAssignments[idx]?.workflowStatus || 'Open'}
                                       disabled={dexModalReadOnly || dexGeneratingMitigations}
