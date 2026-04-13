@@ -174,6 +174,38 @@ export default function Dsai(){
     setDexSaveMessage('')
   }
 
+  const persistDexModalState = (project, assignments, generatedMitigations) => {
+    if (!project) return
+    try {
+      const raw = localStorage.getItem(DEX_MODAL_SAVE_KEY)
+      const savedByProject = raw ? JSON.parse(raw) : {}
+      const projectKey = project.project_id || project.project_name || 'unknown'
+      savedByProject[projectKey] = {
+        assignments: assignments || {},
+        aiMitigations: generatedMitigations || {}
+      }
+      localStorage.setItem(DEX_MODAL_SAVE_KEY, JSON.stringify(savedByProject))
+    } catch (e) {
+      // ignore persistence errors in POC
+    }
+  }
+
+  const persistDexViewModalState = (project, assignments, generatedMitigations) => {
+    if (!project) return
+    try {
+      const raw = localStorage.getItem(DEX_VIEW_MODAL_SAVE_KEY)
+      const savedByProject = raw ? JSON.parse(raw) : {}
+      const projectKey = project.project_id || project.project_name || 'unknown'
+      savedByProject[projectKey] = {
+        assignments: assignments || {},
+        aiMitigations: generatedMitigations || {}
+      }
+      localStorage.setItem(DEX_VIEW_MODAL_SAVE_KEY, JSON.stringify(savedByProject))
+    } catch (e) {
+      // ignore persistence errors in POC
+    }
+  }
+
   const handleGenerateMitigationsWithGemini = async () => {
     if (!dexModalProject?.key_risks || dexModalProject.key_risks.length === 0) {
       setDexMitigationGenError('No risks to generate mitigations for.')
@@ -211,19 +243,22 @@ export default function Dsai(){
           'Format your response exactly as follows — two paragraphs only, no bullet points inside:',
           'LEVEL: [High|Medium|Low]',
           'MITIGATION:',
-          '[Paragraph 1 — Actions: In one professional paragraph, describe the immediate actions (0–7 days) and the preventive actions (8–30 days). Name the responsible owner for each action (e.g. PM, DM, Resource Manager, Finance Lead), include target timeframes, and state the escalation trigger if actions are not completed on schedule.]',
-          '[Paragraph 2 — Indicators & Governance: In one professional paragraph, describe 2–3 measurable early warning signals to monitor, the fallback or contingency plan if the risk materialises despite mitigation, and one clear, quantifiable success KPI that will confirm the risk is closed and stable.]',
+          '[Paragraph 1 — Actions: Write 3-4 concise sentences covering the immediate actions (0-7 days) and preventive actions (8-30 days). Name the responsible owner for each action, include target timeframes, and state the escalation trigger if actions are not completed on schedule.]',
+          '[Paragraph 2 — Indicators & Governance: Write 3-4 concise sentences covering 2-3 measurable early warning signals, the fallback or contingency plan if the risk materialises, and one clear success KPI that confirms the risk is stabilised.]',
           '',
           'Constraints:',
           '- Write in professional senior delivery language — no generic textbook advice.',
           '- Each paragraph must be specific, dense, and immediately actionable.',
           '- Do not use bullet points, numbered lists, or sub-headers inside the paragraphs.',
-          '- Minimum 250 up to 500 words total across each paragraphs.'
+          '- Keep each paragraph short: maximum 90 words per paragraph.',
+          '- Keep each sentence tight: target 12-22 words, avoid long compound sentences.',
+          '- Use exactly 2 short paragraphs and stop after the KPI sentence.',
+          '- Professionally and grammatically correct layout of paragraphs, while keeping the mitigation detailed and proactive.'
         ].join('\n')
 
         const response = await runGeminiAnalysis(prompt, {
-          temperature: 0.35,
-          maxOutputTokens: 1800
+          temperature: 0.25,
+          maxOutputTokens: 1200
         })
 
         const responseText = String(response || '').trim()
@@ -246,6 +281,7 @@ export default function Dsai(){
 
       if (successCount > 0) {
         setAiMitigations(newAiMitigations)
+        persistDexModalState(dexModalProject, mitigationAssignments, newAiMitigations)
         setDexMitigationGenError(`✓ Generated ${successCount} mitigation(s). Review suggested mitigations and enter your actions below.`)
         setTimeout(() => setDexMitigationGenError(''), 5000)
       } else {
@@ -268,6 +304,10 @@ export default function Dsai(){
   // Separate modal/state for DEX tab "View" action
   const [dexViewModalOpen, setDexViewModalOpen] = React.useState(false)
   const [dexViewModalProject, setDexViewModalProject] = React.useState(null)
+  const [dexViewAiMitigations, setDexViewAiMitigations] = React.useState({})
+  const [dexViewGeneratingMitigations, setDexViewGeneratingMitigations] = React.useState(false)
+  const [dexViewMitigationGenError, setDexViewMitigationGenError] = React.useState('')
+  const [dexViewIntegrateBaseline, setDexViewIntegrateBaseline] = React.useState(true)
   const [dexViewMitigationAssignments, setDexViewMitigationAssignments] = React.useState({})
   const [dexViewModalReadOnly, setDexViewModalReadOnly] = React.useState(false)
   const [dexViewSaveMessage, setDexViewSaveMessage] = React.useState('')
@@ -288,6 +328,8 @@ export default function Dsai(){
     setDexViewSaveMessage('')
     setPublishTooltip(null)
     setRejectReasonEditor(null)
+    setDexViewAiMitigations({})
+    setDexViewMitigationGenError('')
   }
 
   // load previously saved DEX View assignments for selected project
@@ -297,7 +339,9 @@ export default function Dsai(){
       const raw = localStorage.getItem(DEX_VIEW_MODAL_SAVE_KEY)
       const savedByProject = raw ? JSON.parse(raw) : {}
       const projectKey = dexViewModalProject.project_id || dexViewModalProject.project_name || 'unknown'
-      const savedAssignments = savedByProject?.[projectKey] || {}
+      const savedProjectState = savedByProject?.[projectKey] || {}
+      const savedAssignments = savedProjectState.assignments || savedProjectState || {}
+      const savedAiMitigations = savedProjectState.aiMitigations || {}
       const normalizedSavedAssignments = Object.fromEntries(
         Object.entries(savedAssignments).map(([key, row]) => [
           key,
@@ -308,22 +352,91 @@ export default function Dsai(){
         ])
       )
       setDexViewMitigationAssignments(normalizedSavedAssignments)
+      setDexViewAiMitigations(savedAiMitigations)
       setDexViewModalReadOnly(true)
       setDexViewSaveMessage('')
     } catch (e) {
       setDexViewMitigationAssignments({})
+      setDexViewAiMitigations({})
       setDexViewModalReadOnly(true)
       setDexViewSaveMessage('')
     }
   }, [dexViewModalOpen, dexViewModalProject])
 
+  const handleGenerateViewMitigations = async () => {
+    if (!dexViewModalProject?.key_risks || dexViewModalProject.key_risks.length === 0) {
+      setDexViewMitigationGenError('No risks to generate mitigations for.')
+      setTimeout(() => setDexViewMitigationGenError(''), 3000)
+      return
+    }
+    try {
+      setDexViewGeneratingMitigations(true)
+      setDexViewMitigationGenError('')
+      const newAiMitigations = { ...dexViewAiMitigations }
+      let successCount = 0
+      for (let idx = 0; idx < dexViewModalProject.key_risks.length; idx++) {
+        const risk = dexViewModalProject.key_risks[idx]
+        const assessedLevel = inferRiskLevel(risk)
+        const prompt = [
+          'You are a Senior Project Delivery Risk Analyst with over 15 years of experience managing complex enterprise implementations across consulting, ERP, and digital transformation programmes.',
+          'You are reviewing a flagged project risk and must produce a precise, senior-level mitigation plan that the Delivery Manager can act on immediately.',
+          '',
+          `Project: ${dexViewModalProject.project_name}`,
+          `Delivery Lead: ${dexViewModalProject.people?.[0]?.person || 'Unknown'}`,
+          `Total Hours Charged: ${dexViewModalProject.total_hours || 0}h`,
+          '',
+          `Risk Identified: ${risk}`,
+          `Pre-assessed Risk Level: ${assessedLevel}`,
+          '',
+          'Before writing your mitigation, briefly consider the likely root cause and the business impact if this risk is left unaddressed.',
+          'Then write a professional, actionable mitigation plan that a delivery team can execute this week.',
+          '',
+          'Format your response exactly as follows — two paragraphs only, no bullet points inside:',
+          'LEVEL: [High|Medium|Low]',
+          'MITIGATION:',
+          '[Paragraph 1 — Actions: Write 3-4 concise sentences covering the immediate actions (0-7 days) and preventive actions (8-30 days). Name the responsible owner for each action, include target timeframes, and state the escalation trigger if actions are not completed on schedule.]',
+          '[Paragraph 2 — Indicators & Governance: Write 3-4 concise sentences covering 2-3 measurable early warning signals, the fallback or contingency plan if the risk materialises, and one clear success KPI that confirms the risk is stabilised.]',
+          '',
+          'Constraints:',
+          '- Write in professional senior delivery language — no generic textbook advice.',
+          '- Each paragraph must be specific, dense, and immediately actionable.',
+          '- Do not use bullet points, numbered lists, or sub-headers inside the paragraphs.',
+          '- Keep each paragraph short: maximum 90 words per paragraph.',
+          '- Keep each sentence tight: target 12-22 words, avoid long compound sentences.',
+          '- Use exactly 2 short paragraphs and stop after the KPI sentence.',
+          '- Keep the full mitigation under 180 words total.'
+        ].join('\n')
+        const response = await runGeminiAnalysis(prompt, { temperature: 0.25, maxOutputTokens: 1200 })
+        const responseText = String(response || '').trim()
+        if (responseText) {
+          const levelMatch = responseText.match(/LEVEL:\s*(High|Medium|Low)/i)
+          const mitigationMatch = responseText.match(/MITIGATION:\s*([\s\S]*)/i)
+          const riskLevel = levelMatch ? (levelMatch[1].charAt(0).toUpperCase() + levelMatch[1].slice(1).toLowerCase()) : 'High'
+          const mitigationText = mitigationMatch ? mitigationMatch[1].trim() : responseText
+          newAiMitigations[idx] = { riskLevel, mitigation: mitigationText }
+          successCount++
+        }
+      }
+      if (successCount > 0) {
+        setDexViewAiMitigations(newAiMitigations)
+        persistDexViewModalState(dexViewModalProject, dexViewMitigationAssignments, newAiMitigations)
+        setDexViewMitigationGenError(`✓ Generated ${successCount} mitigation(s).`)
+        setTimeout(() => setDexViewMitigationGenError(''), 5000)
+      } else {
+        setDexViewMitigationGenError('Could not parse Gemini response. Please try again.')
+        setTimeout(() => setDexViewMitigationGenError(''), 3000)
+      }
+    } catch (error) {
+      setDexViewMitigationGenError(error?.message || 'Mitigation generation failed. Try again.')
+      setTimeout(() => setDexViewMitigationGenError(''), 5000)
+    } finally {
+      setDexViewGeneratingMitigations(false)
+    }
+  }
+
   const saveDexViewModalAssignments = () => {
     if (!dexViewModalProject) return
     try {
-      const raw = localStorage.getItem(DEX_VIEW_MODAL_SAVE_KEY)
-      const savedByProject = raw ? JSON.parse(raw) : {}
-      const projectKey = dexViewModalProject.project_id || dexViewModalProject.project_name || 'unknown'
-
       const risks = dexViewModalProject?.key_risks || []
       const normalizedAssignments = { ...dexViewMitigationAssignments }
       risks.forEach((_, idx) => {
@@ -337,8 +450,7 @@ export default function Dsai(){
         }
       })
 
-      savedByProject[projectKey] = normalizedAssignments
-      localStorage.setItem(DEX_VIEW_MODAL_SAVE_KEY, JSON.stringify(savedByProject))
+      persistDexViewModalState(dexViewModalProject, normalizedAssignments, dexViewAiMitigations)
       setDexViewMitigationAssignments(normalizedAssignments)
       setDexViewModalReadOnly(true)
       setDexViewSaveMessage('Saved')
@@ -361,12 +473,16 @@ export default function Dsai(){
       const raw = localStorage.getItem(DEX_MODAL_SAVE_KEY)
       const savedByProject = raw ? JSON.parse(raw) : {}
       const projectKey = dexModalProject.project_id || dexModalProject.project_name || 'unknown'
-      const savedAssignments = savedByProject?.[projectKey] || {}
+      const savedProjectState = savedByProject?.[projectKey] || {}
+      const savedAssignments = savedProjectState.assignments || savedProjectState || {}
+      const savedAiMitigations = savedProjectState.aiMitigations || {}
       setMitigationAssignments(savedAssignments)
+      setAiMitigations(savedAiMitigations)
       setDexModalReadOnly(true)
       setDexValidationErrors({})
     } catch (e) {
       setMitigationAssignments({})
+      setAiMitigations({})
       setDexModalReadOnly(true)
       setDexValidationErrors({})
     }
@@ -398,9 +514,6 @@ export default function Dsai(){
       return
     }
     try {
-      const raw = localStorage.getItem(DEX_MODAL_SAVE_KEY)
-      const savedByProject = raw ? JSON.parse(raw) : {}
-      const projectKey = dexModalProject.project_id || dexModalProject.project_name || 'unknown'
       // Persist explicit workflowStatus so reopened rows keep the chosen/default value.
       const risks = dexModalProject?.key_risks || []
       const normalizedAssignments = { ...mitigationAssignments }
@@ -408,8 +521,7 @@ export default function Dsai(){
         const row = normalizedAssignments[idx] || {}
         normalizedAssignments[idx] = { ...row, workflowStatus: row.workflowStatus || 'Open' }
       })
-      savedByProject[projectKey] = normalizedAssignments
-      localStorage.setItem(DEX_MODAL_SAVE_KEY, JSON.stringify(savedByProject))
+      persistDexModalState(dexModalProject, normalizedAssignments, aiMitigations)
       setMitigationAssignments(normalizedAssignments)
       setDexModalReadOnly(true)
       setDexValidationErrors({})
@@ -1087,7 +1199,15 @@ export default function Dsai(){
 
               <div style={{paddingTop:12}}>
                 <div style={{overflowX:'auto'}}>
-                  <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:13}} aria-label="DEX Projects">
+                  <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:13,tableLayout:'fixed'}} aria-label="DEX Projects">
+                    <colgroup>
+                      <col style={{width:'20%'}} />
+                      <col style={{width:'14%'}} />
+                      <col style={{width:'8%'}} />
+                      <col style={{width:'12%'}} />
+                      <col style={{width:'40%'}} />
+                      <col style={{width:'6%'}} />
+                    </colgroup>
                     <thead>
                       <tr style={{textAlign:'left',color:'#6a7280',fontWeight:900,fontSize:12,borderBottom:'1px solid #e6e9f2'}}>
                         <th style={{padding:'12px 10px'}}>Project</th>
@@ -1141,7 +1261,7 @@ export default function Dsai(){
                       </div>
 
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <button onClick={() => { console.log('Export DEX View', dexViewModalProject?.project_id) }} aria-label="Export DEX view report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                        <button disabled={dexViewGeneratingMitigations} onClick={() => { console.log('Export DEX View', dexViewModalProject?.project_id) }} aria-label="Export DEX view report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexViewGeneratingMitigations ? 0.6 : 1}}>
                           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <path d="M7 10l5 5 5-5" />
@@ -1149,20 +1269,20 @@ export default function Dsai(){
                           </svg>
                           <span style={{display:'inline-block',transform:'translateY(-1px)'}}>Export</span>
                         </button>
-                        <button onClick={saveDexViewModalAssignments} aria-label="Save DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                        <button disabled={dexViewGeneratingMitigations} onClick={saveDexViewModalAssignments} aria-label="Save DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexViewGeneratingMitigations ? 0.6 : 1}}>
                           Save
                         </button>
-                        <button onClick={() => { setDexViewModalReadOnly(false); setRejectReasonEditor(null) }} aria-label="Edit DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                        <button disabled={dexViewGeneratingMitigations} onClick={() => { setDexViewModalReadOnly(false); setRejectReasonEditor(null) }} aria-label="Edit DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexViewGeneratingMitigations ? 0.6 : 1}}>
                           Edit
                         </button>
                         {dexViewSaveMessage && <div style={{fontSize:12,color:dexViewSaveMessage === 'Saved' ? '#065f46' : '#b91c1c',fontWeight:700}}>{dexViewSaveMessage}</div>}
-                        <button onClick={closeDexViewModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:'pointer'}}>Close</button>
+                        <button disabled={dexViewGeneratingMitigations} onClick={closeDexViewModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexViewGeneratingMitigations ? 0.6 : 1}}>Close</button>
                       </div>
                     </div>
 
                     <div style={{padding:16,overflow:'auto'}}>
-                      <div style={{marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'10px 12px',borderRadius:10,border:'1px solid #dbeafe',background:'linear-gradient(135deg,#eff6ff,#f8fafc)'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={{marginBottom:12,display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,border:'1px solid #dbeafe',background:'linear-gradient(135deg,#eff6ff,#f8fafc)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10,flex:1}}>
                           <div style={{width:28,height:28,borderRadius:8,display:'grid',placeItems:'center',background:'#dbeafe',border:'1px solid #bfdbfe',color:'#1d4ed8'}}>
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                           </div>
@@ -1174,6 +1294,20 @@ export default function Dsai(){
                         <div style={{fontSize:12,fontWeight:800,color:'#0f172a',background:'#ffffff',border:'1px solid #cbd5e1',borderRadius:999,padding:'6px 10px'}}>
                           {(dexViewModalProject?.key_risks || []).length} risks
                         </div>
+                      </div>
+
+                      <div style={{marginBottom:12,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                        <button onClick={handleGenerateViewMitigations} disabled={dexViewGeneratingMitigations} aria-label="Generate mitigations with Gemini" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:dexViewGeneratingMitigations ? '#374151' : '#111827',border:dexViewGeneratingMitigations ? '1px solid #4b5563' : '1px solid #000',color:'#fff',fontWeight:700,cursor:dexViewGeneratingMitigations ? 'wait' : 'pointer'}}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
+                            <path d="M12 2v6m0 0l-3-3m3 3l3-3M4 7v10m0 0v2c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-2m0 0V9c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v8" />
+                          </svg>
+                          <span style={{display:'inline-block',transform:'translateY(-1px)'}}>{dexViewGeneratingMitigations ? 'Generating...' : 'Generate Mitigations (Gemini)'}</span>
+                        </button>
+                        <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'#374151',cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',userSelect:'none',opacity:dexViewGeneratingMitigations ? 0.6 : 1}}>
+                          <input type="checkbox" checked={dexViewIntegrateBaseline} disabled={dexViewGeneratingMitigations} onChange={e => setDexViewIntegrateBaseline(e.target.checked)} style={{width:15,height:15,cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',accentColor:'#111827'}} />
+                          Integrate with baseline mitigations
+                        </label>
+                        {dexViewMitigationGenError && <div style={{fontSize:12,color:dexViewMitigationGenError.includes('✓') ? '#059669' : '#b91c1c',fontWeight:700}}>{dexViewMitigationGenError}</div>}
                       </div>
                       <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'visible',background:'#fff'}}>
                         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,tableLayout:'fixed'}}>
@@ -1207,7 +1341,7 @@ export default function Dsai(){
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
-                                    <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>{buildSuggestedMitigation(rk, aiMitigations[idx]?.mitigation)}</div>
+                                    <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>{dexViewAiMitigations[idx]?.mitigation ? (dexViewIntegrateBaseline ? buildSuggestedMitigation(rk, dexViewAiMitigations[idx].mitigation) : dexViewAiMitigations[idx].mitigation) : 'No suggested mitigation yet. Click "Generate Mitigations (Gemini)" to create an AI recommendation.'}</div>
                                   </td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
                                     {(() => {
@@ -1223,12 +1357,12 @@ export default function Dsai(){
                                         <div style={{display:'grid',gap:8}}>
                                           <select
                                             value={riskPriority}
-                                            disabled={dexViewModalReadOnly || rowLocked}
+                                            disabled={dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations}
                                             onChange={(e) => {
                                               if (isDexViewRowLocked(idx)) return
                                               setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), riskPriority: e.target.value } }))
                                             }}
-                                            style={{width:'100%',padding:'6px 8px',borderRadius:8,border:'1px solid #dbe3ef',fontSize:12,fontWeight:700,background:(dexViewModalReadOnly || rowLocked) ? '#f8fafc' : '#fff',color:'#0f172a'}}
+                                            style={{width:'100%',padding:'6px 8px',borderRadius:8,border:'1px solid #dbe3ef',fontSize:12,fontWeight:700,background:(dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations) ? '#f8fafc' : '#fff',color:'#0f172a'}}
                                           >
                                             <option value="High">High</option>
                                             <option value="Medium">Medium</option>
@@ -1255,23 +1389,23 @@ export default function Dsai(){
                                             setPublishTooltip({ row: idx, left, top, placement })
                                           }}
                                           onMouseLeave={() => setPublishTooltip(null)}
-                                          disabled={dexViewModalReadOnly || rowLocked}
+                                          disabled={dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations}
                                           onClick={() => {
                                             if (isDexViewRowLocked(idx)) return
                                             setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Published' } }))
                                           }}
-                                          style={{padding:'6px 10px',borderRadius:6,background:'#16a34a',color:'#fff',border:0,cursor:(dexViewModalReadOnly || rowLocked) ? 'not-allowed' : 'pointer',opacity:(dexViewModalReadOnly || rowLocked) ? 0.6 : 1,fontWeight:700}}
+                                          style={{padding:'6px 10px',borderRadius:6,background:'#16a34a',color:'#fff',border:0,cursor:(dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations) ? 'not-allowed' : 'pointer',opacity:(dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations) ? 0.6 : 1,fontWeight:700}}
                                         >
                                           Publish
                                         </button>
 
                                         <button
-                                          disabled={dexViewModalReadOnly || rowLocked}
+                                          disabled={dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations}
                                           onClick={() => {
                                             if (isDexViewRowLocked(idx)) return
                                             setRejectReasonEditor({ row: idx, value: dexViewMitigationAssignments[idx]?.rejectReason || '', error: '' })
                                           }}
-                                          style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:(dexViewModalReadOnly || rowLocked) ? 'not-allowed' : 'pointer',opacity:(dexViewModalReadOnly || rowLocked) ? 0.6 : 1,fontWeight:700}}
+                                          style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:(dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations) ? 'not-allowed' : 'pointer',opacity:(dexViewModalReadOnly || rowLocked || dexViewGeneratingMitigations) ? 0.6 : 1,fontWeight:700}}
                                         >
                                           Reject
                                         </button>
@@ -1280,6 +1414,7 @@ export default function Dsai(){
                                         <div style={{width:'100%',padding:10,borderRadius:10,background:'#fff',border:'1px solid #fecaca',boxShadow:'0 10px 24px rgba(15,23,42,0.14)'}}>
                                           <div style={{fontSize:11,fontWeight:700,color:'#7f1d1d',marginBottom:6}}>Rejection reason</div>
                                           <textarea
+                                            disabled={dexViewGeneratingMitigations}
                                             value={rejectReasonEditor.value}
                                             onChange={(e) => setRejectReasonEditor(prev => ({ ...(prev || {}), value: e.target.value, error: '' }))}
                                             placeholder="Enter reason"
@@ -1289,8 +1424,8 @@ export default function Dsai(){
                                             <div style={{marginTop:6,fontSize:11,color:'#b91c1c',fontWeight:700}}>{rejectReasonEditor.error}</div>
                                           )}
                                           <div style={{display:'flex',justifyContent:'flex-end',gap:6,marginTop:8}}>
-                                            <button onClick={() => setRejectReasonEditor(null)} style={{padding:'5px 8px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancel</button>
-                                            <button onClick={() => {
+                                            <button disabled={dexViewGeneratingMitigations} onClick={() => setRejectReasonEditor(null)} style={{padding:'5px 8px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',fontSize:11,fontWeight:700,cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexViewGeneratingMitigations ? 0.6 : 1}}>Cancel</button>
+                                            <button disabled={dexViewGeneratingMitigations} onClick={() => {
                                               if (!String(rejectReasonEditor?.value || '').trim()) {
                                                 setRejectReasonEditor(prev => ({ ...(prev || {}), error: 'Reason is required' }))
                                                 return
@@ -1300,7 +1435,7 @@ export default function Dsai(){
                                                 [idx]: { ...(prev[idx] || {}), publish: 'Rejected', rejectReason: String(rejectReasonEditor?.value || '').trim() }
                                               }))
                                               setRejectReasonEditor(null)
-                                            }} style={{padding:'5px 8px',borderRadius:6,border:'1px solid #b91c1c',background:'#dc2626',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>Apply</button>
+                                            }} style={{padding:'5px 8px',borderRadius:6,border:'1px solid #b91c1c',background:'#dc2626',color:'#fff',fontSize:11,fontWeight:700,cursor:dexViewGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexViewGeneratingMitigations ? 0.6 : 1}}>Apply</button>
                                           </div>
                                         </div>
                                       )}
@@ -1462,7 +1597,16 @@ export default function Dsai(){
               {/* table */}
               <div style={{paddingTop:12}}>
                 <div style={{overflowX:'auto'}}>
-                  <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:13}} aria-label="Projects">
+                  <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:13,tableLayout:'fixed'}} aria-label="Projects">
+                    <colgroup>
+                      <col style={{width:'20%'}} />
+                      <col style={{width:'13%'}} />
+                      <col style={{width:'10%'}} />
+                      <col style={{width:'9%'}} />
+                      <col style={{width:'10%'}} />
+                      <col style={{width:'8%'}} />
+                      <col style={{width:'30%'}} />
+                    </colgroup>
                     <thead>
                       <tr style={{textAlign:'left',color:'#6a7280',fontWeight:900,fontSize:12,borderBottom:'1px solid #e6e9f2'}}>
                         <th style={{padding:'12px 10px'}}>Project</th>
@@ -1531,7 +1675,7 @@ export default function Dsai(){
                       </div>
 
                       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                        <button onClick={() => { console.log('Export DEX', dexModalProject?.project_id); }} aria-label="Export DEX report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                        <button disabled={dexGeneratingMitigations} onClick={() => { console.log('Export DEX', dexModalProject?.project_id); }} aria-label="Export DEX report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexGeneratingMitigations ? 0.6 : 1}}>
                           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <path d="M7 10l5 5 5-5" />
@@ -1539,15 +1683,15 @@ export default function Dsai(){
                           </svg>
                           <span style={{display:'inline-block',transform:'translateY(-1px)'}}>Export</span>
                         </button>
-                        <button onClick={saveDexModalAssignments} aria-label="Save DEX actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                        <button disabled={dexGeneratingMitigations} onClick={saveDexModalAssignments} aria-label="Save DEX actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexGeneratingMitigations ? 0.6 : 1}}>
                           Save
                         </button>
-                        <button onClick={() => setDexModalReadOnly(false)} aria-label="Edit DEX actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                        <button disabled={dexGeneratingMitigations} onClick={() => setDexModalReadOnly(false)} aria-label="Edit DEX actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexGeneratingMitigations ? 0.6 : 1}}>
                           Edit
                         </button>
                         {dexSaveMessage && <div style={{fontSize:12,color:dexSaveMessage === 'Saved' ? '#065f46' : '#b91c1c',fontWeight:700}}>{dexSaveMessage}</div>}
                         {dexMitigationGenError && <div style={{fontSize:12,color:dexMitigationGenError.includes('✓') ? '#059669' : '#b91c1c',fontWeight:700}}>{dexMitigationGenError}</div>}
-                        <button onClick={closeDexModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:'pointer'}}>Close</button>
+                        <button disabled={dexGeneratingMitigations} onClick={closeDexModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',opacity:dexGeneratingMitigations ? 0.6 : 1}}>Close</button>
                        </div>
                     </div>
 
@@ -1569,8 +1713,8 @@ export default function Dsai(){
                           </svg>
                           <span style={{display:'inline-block',transform:'translateY(-1px)'}}>{dexGeneratingMitigations ? 'Generating...' : 'Generate Mitigations (Gemini)'}</span>
                         </button>
-                        <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'#374151',cursor:'pointer',userSelect:'none'}}>
-                          <input type="checkbox" checked={dexIntegrateBaseline} onChange={e => setDexIntegrateBaseline(e.target.checked)} style={{width:15,height:15,cursor:'pointer',accentColor:'#111827'}} />
+                        <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'#374151',cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',userSelect:'none',opacity:dexGeneratingMitigations ? 0.6 : 1}}>
+                          <input type="checkbox" checked={dexIntegrateBaseline} disabled={dexGeneratingMitigations} onChange={e => setDexIntegrateBaseline(e.target.checked)} style={{width:15,height:15,cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',accentColor:'#111827'}} />
                           Integrate with baseline mitigations
                         </label>
                       </div>
@@ -1620,11 +1764,11 @@ export default function Dsai(){
 
                                   {/* Actions Taken */}
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
-                                    <textarea placeholder="Enter action" readOnly={dexModalReadOnly} value={mitigationAssignments[idx]?.actionsTaken || ''} onChange={(e) => {
+                                    <textarea placeholder="Enter action" readOnly={dexModalReadOnly || dexGeneratingMitigations} value={mitigationAssignments[idx]?.actionsTaken || ''} onChange={(e) => {
                                       const value = e.target.value
                                       setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), actionsTaken: value } }))
                                       setDexValidationErrors(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), actionsTaken: '' } }))
-                                    }} style={{width:'100%',minHeight:'80px',padding:'8px 10px',borderRadius:6,border:dexValidationErrors[idx]?.actionsTaken ? '1px solid #ef4444' : '1px solid #e6eef6',fontSize:12,boxSizing:'border-box',fontFamily:'inherit',resize:'vertical',background:dexModalReadOnly ? '#f8fafc' : '#fff'}} />
+                                    }} style={{width:'100%',minHeight:'80px',padding:'8px 10px',borderRadius:6,border:dexValidationErrors[idx]?.actionsTaken ? '1px solid #ef4444' : '1px solid #e6eef6',fontSize:12,boxSizing:'border-box',fontFamily:'inherit',resize:'vertical',background:(dexModalReadOnly || dexGeneratingMitigations) ? '#f8fafc' : '#fff'}} />
                                     {dexValidationErrors[idx]?.actionsTaken && <div style={{marginTop:6,color:'#dc2626',fontSize:11,fontWeight:700}}>{dexValidationErrors[idx]?.actionsTaken}</div>}
                                   </td>
 
@@ -1633,7 +1777,7 @@ export default function Dsai(){
                                     <input
                                       type="date"
                                       value={mitigationAssignments[idx]?.dueDate || ''}
-                                      disabled={dexModalReadOnly}
+                                      disabled={dexModalReadOnly || dexGeneratingMitigations}
                                       onChange={(e) => {
                                         const value = e.target.value
                                         setMitigationAssignments(prev => ({
@@ -1652,7 +1796,7 @@ export default function Dsai(){
                                         borderRadius:6,
                                         border:dexValidationErrors[idx]?.dueDate ? '1px solid #ef4444' : '1px solid #e6eef6',
                                         fontSize:11,
-                                        background:dexModalReadOnly ? '#f8fafc' : '#fff'
+                                        background:(dexModalReadOnly || dexGeneratingMitigations) ? '#f8fafc' : '#fff'
                                       }}
                                     />
                                     {dexValidationErrors[idx]?.dueDate && <div style={{marginTop:6,color:'#dc2626',fontSize:11,fontWeight:700}}>{dexValidationErrors[idx]?.dueDate}</div>}
@@ -1661,7 +1805,7 @@ export default function Dsai(){
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'18%'}}>
                                     <select
                                       value={mitigationAssignments[idx]?.workflowStatus || 'Open'}
-                                      disabled={dexModalReadOnly}
+                                      disabled={dexModalReadOnly || dexGeneratingMitigations}
                                       onChange={(e) => {
                                         const value = e.target.value
                                         setMitigationAssignments(prev => ({
@@ -1680,7 +1824,7 @@ export default function Dsai(){
                                         borderRadius:6,
                                         border:dexValidationErrors[idx]?.workflowStatus ? '1px solid #ef4444' : '1px solid #e6eef6',
                                         fontSize:13,
-                                        background:dexModalReadOnly ? '#f8fafc' : '#fff'
+                                        background:(dexModalReadOnly || dexGeneratingMitigations) ? '#f8fafc' : '#fff'
                                       }}
                                     >
                                       <option value="Open">Open</option>
