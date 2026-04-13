@@ -51,11 +51,12 @@ const response = await geminiChat(messages);
 ```javascript
 import { geminiStream } from './src/gemini';
 
-const stream = geminiStream('Explain quantum computing', {
-  onChunk: (chunk) => console.log('Received:', chunk),
-  onComplete: (fullText) => console.log('Complete:', fullText),
-  onError: (error) => console.error('Error:', error)
-});
+const fullText = await geminiStream(
+  'Explain quantum computing',
+  (chunk) => console.log('Received:', chunk), // onChunk callback
+  { temperature: 0.7 } // options
+);
+console.log('Complete:', fullText);
 ```
 
 ### Model Management
@@ -129,11 +130,12 @@ function MyComponent() {
 
 The integration includes intelligent model selection:
 
-1. **Preferred Models** (in priority order):
-   - `gemini-1.5-flash-8b-exp-0924` ⭐ (Fastest, most reliable)
-   - `gemini-1.5-flash-exp-0827` 
-   - `gemini-1.5-pro-exp-0827`
-   - `gemini-1.0-pro`
+1. **Current Models** (in priority order):
+   - `gemini-2.5-flash` ⭐ (Latest stable, fastest)
+   - `gemini-flash-latest` (Always current version)
+   - `gemini-2.5-pro` (Most capable stable)
+   - `gemini-pro-latest` (Latest pro features)
+   - `gemini-2.0-flash` (Reliable fallback)
 
 2. **Automatic Fallbacks**: If a model fails, automatically tries the next one
 3. **Smart Model Detection**: `getWorkingModels()` checks what's actually available
@@ -182,11 +184,12 @@ Visit `/` in your browser to access the interactive demo component with:
 
 ## 📝 Recent Updates
 
-### Fixed Model Compatibility (Latest Update)
-- ✅ **Fixed 404 Errors**: Updated model names to working versions
-- ✅ **Added Model Discovery**: New `getWorkingModels()` function
-- ✅ **Smart Auto-Complete**: Automatically uses best available model
+### Fixed Model Compatibility (Latest Update - April 2026)
+- ✅ **Fixed 404 Errors**: Updated to Gemini 2.5/3.x series models
+- ✅ **Added Model Discovery**: New `getWorkingModels()` function with REST API
+- ✅ **Smart Auto-Complete**: Automatically uses best available model from 34+ options
 - ✅ **Priority Ordering**: Models ranked by reliability and performance
+- ✅ **Updated Model Discovery**: Now uses direct REST API calls for accurate model listing
 
 ### Previous Updates
 - ✅ Migrated to official `@google/generative-ai` SDK
@@ -212,4 +215,12 @@ import { geminiChat } from './src/utils/gemini';
 
 ---
 
-**Note**: Make sure your API key has access to the Gemini models. Some experimental models may require special access or have regional availability restrictions.
+## 📊 Available Models (April 2026)
+
+The integration now supports 34+ models including:
+- **Gemini 2.5 Series**: `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.5-flash-lite`
+- **Gemini 3.x Preview**: `gemini-3-flash-preview`, `gemini-3.1-pro-preview`
+- **Specialized Models**: Image, TTS, Computer Use variants
+- **Latest Aliases**: `gemini-flash-latest`, `gemini-pro-latest`
+
+**Note**: Make sure your API key has access to the Gemini models. The integration automatically discovers available models and uses the best ones for your account.

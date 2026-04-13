@@ -28,6 +28,28 @@ Short: React front-end workspace (Vite-like) used for porting project_sample.htm
 - Preview production build locally:
   pwsh.exe> npm run preview
 
+## Features
+
+- **React 19.2.4** with Vite for fast development
+- **Gemini AI Integration** - Complete text completion, chat, and streaming capabilities
+- **Legacy Project Porting** - DSAI onboarding system integration
+- **Component Architecture** - Modular page-based structure
+
+## Gemini AI Integration
+
+This app includes a comprehensive Gemini AI integration. See [GEMINI-INTEGRATION.md](./GEMINI-INTEGRATION.md) for complete documentation.
+
+**Quick Start:**
+```javascript
+import { geminiComplete, useGemini } from './src/gemini';
+
+// Direct usage
+const response = await geminiComplete('Hello AI');
+
+// React hook with state management
+const { complete, loading, error } = useGemini();
+```
+
 ## Notes
 
 - Entry page for the ported legacy sample: src/pages/ProjectSample.jsx
