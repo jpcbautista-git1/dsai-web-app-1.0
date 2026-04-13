@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 
 export default function Dsai(){
   const DEX_MODAL_SAVE_KEY = 'dsaiDexModalSavedAssignments'
+  const DEX_VIEW_MODAL_SAVE_KEY = 'dsaiDexViewModalSavedAssignments'
   const uploadRef = useRef(null)
   const [parsedData, setParsedData] = useState(null)
   const [projectSummaries, setProjectSummaries] = React.useState([
@@ -82,6 +83,75 @@ export default function Dsai(){
   // mitigation assignment state for modal (owner selection + accept flag)
   const [mitigationAssignments, setMitigationAssignments] = React.useState({})
   const setMitigationOwner = (idx, owner) => setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), owner } }))
+
+  // Separate modal/state for DEX tab "View" action
+  const [dexViewModalOpen, setDexViewModalOpen] = React.useState(false)
+  const [dexViewModalProject, setDexViewModalProject] = React.useState(null)
+  const [dexViewMitigationAssignments, setDexViewMitigationAssignments] = React.useState({})
+  const [dexViewModalReadOnly, setDexViewModalReadOnly] = React.useState(false)
+  const [dexViewSaveMessage, setDexViewSaveMessage] = React.useState('')
+
+  const openDexViewModal = (project) => {
+    setDexViewModalProject(project)
+    setDexViewModalReadOnly(true)
+    setDexViewModalOpen(true)
+  }
+
+  const closeDexViewModal = () => {
+    setDexViewModalOpen(false)
+    setDexViewModalProject(null)
+    setDexViewMitigationAssignments({})
+    setDexViewModalReadOnly(false)
+    setDexViewSaveMessage('')
+  }
+
+  // load previously saved DEX View assignments for selected project
+  React.useEffect(() => {
+    if (!dexViewModalOpen || !dexViewModalProject) return
+    try {
+      const raw = localStorage.getItem(DEX_VIEW_MODAL_SAVE_KEY)
+      const savedByProject = raw ? JSON.parse(raw) : {}
+      const projectKey = dexViewModalProject.project_id || dexViewModalProject.project_name || 'unknown'
+      const savedAssignments = savedByProject?.[projectKey] || {}
+      setDexViewMitigationAssignments(savedAssignments)
+      setDexViewModalReadOnly(true)
+      setDexViewSaveMessage('')
+    } catch (e) {
+      setDexViewMitigationAssignments({})
+      setDexViewModalReadOnly(true)
+      setDexViewSaveMessage('')
+    }
+  }, [dexViewModalOpen, dexViewModalProject])
+
+  const saveDexViewModalAssignments = () => {
+    if (!dexViewModalProject) return
+    try {
+      const raw = localStorage.getItem(DEX_VIEW_MODAL_SAVE_KEY)
+      const savedByProject = raw ? JSON.parse(raw) : {}
+      const projectKey = dexViewModalProject.project_id || dexViewModalProject.project_name || 'unknown'
+
+      const risks = dexViewModalProject?.key_risks || []
+      const normalizedAssignments = { ...dexViewMitigationAssignments }
+      risks.forEach((_, idx) => {
+        const row = normalizedAssignments[idx] || {}
+        normalizedAssignments[idx] = {
+          ...row,
+          dexRisk: row.dexRisk || 'Amber',
+          publish: row.publish || ''
+        }
+      })
+
+      savedByProject[projectKey] = normalizedAssignments
+      localStorage.setItem(DEX_VIEW_MODAL_SAVE_KEY, JSON.stringify(savedByProject))
+      setDexViewMitigationAssignments(normalizedAssignments)
+      setDexViewModalReadOnly(true)
+      setDexViewSaveMessage('Saved')
+      setTimeout(() => setDexViewSaveMessage(''), 1400)
+    } catch (e) {
+      setDexViewSaveMessage('Save failed')
+      setTimeout(() => setDexViewSaveMessage(''), 1800)
+    }
+  }
 
   // load previously saved assignments for the selected project when opening the modal
   React.useEffect(() => {
@@ -693,102 +763,225 @@ export default function Dsai(){
 
           {/* Full DEX dashboard content */}
           {activeTab === 'dex' && (
-            <div style={{padding:12}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-                <div>
-                  <div style={{fontSize:18,fontWeight:900,color:'var(--text-h)'}}>DEX — Delivery Experience</div>
-                  <div style={{fontSize:13,color:'var(--muted)',marginTop:6}}>Overview of all projects, AI-identified risks, and sync status.</div>
-                </div>
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  {/* header action buttons removed to declutter; left intentionally blank */}
+            <>
+              <div style={{padding:'12px 20px 10px'}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0,1fr))',gap:10}}>
+                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      <div style={{fontSize:10,color:'#6a7280',fontWeight:700}}>Total Projects</div>
+                      <div style={{fontSize:18,fontWeight:900,color:'#2a2f36'}}>{dexTotalProjects}</div>
+                    </div>
+                  </div>
+
+                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      <div style={{fontSize:10,color:'#6a7280',fontWeight:700}}>Projects At Risk</div>
+                      <div style={{fontSize:18,fontWeight:900,color:'#b91c1c'}}>{dexAtRisk}</div>
+                    </div>
+                  </div>
+
+                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      <div style={{fontSize:10,color:'#6a7280',fontWeight:700}}>Synced</div>
+                      <div style={{fontSize:18,fontWeight:900,color:'#15803d'}}>{dexSynced}</div>
+                    </div>
+                  </div>
+
+                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      <div style={{fontSize:10,color:'#6a7280',fontWeight:700}}>Avg Hours</div>
+                      <div style={{fontSize:18,fontWeight:900,color:'#f97316'}}>{dexAvgHours}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* KPI cards */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:12}}>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Total Projects</div>
-                  <div style={{fontSize:22,fontWeight:900,color:'#2a2f36',marginTop:6}}>{dexTotalProjects}</div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'8px 0 0'}}>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <button style={{padding:'7px 10px',borderRadius:10,background:'#f5f6fb',border:'1px solid #e3e6ef',fontWeight:800}}>All Projects</button>
+                  <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e6e6ef',fontWeight:800}}><span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#ef4444',marginRight:8}}></span>At Risk</button>
+                  <button style={{padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e6e6ef',fontWeight:800}}><span style={{display:'inline-block',width:8,height:8,borderRadius:999,background:'#22c55e',marginRight:8}}></span>Synced</button>
                 </div>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Projects At Risk</div>
-                  <div style={{fontSize:22,fontWeight:900,color:'#b91c1c',marginTop:6}}>{dexAtRisk}</div>
-                </div>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Synced</div>
-                  <div style={{fontSize:22,fontWeight:900,color:'#15803d',marginTop:6}}>{dexSynced}</div>
-                </div>
-                <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:16}}>
-                  <div style={{fontSize:12,color:'#6a7280',fontWeight:700}}>Avg Hours</div>
-                  <div style={{fontSize:22,fontWeight:900,color:'#f97316',marginTop:6}}>{dexAvgHours}</div>
+
+                <div style={{display:'flex',alignItems:'center',gap:12,flex:1,justifyContent:'flex-end'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,background:'#fff',border:'1px solid #e6e6ef',borderRadius:10,padding:'7px 10px',minWidth:260}}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="#6a7280"><path d="M10 2a8 8 0 1 0 4.9 14.32l4.39 4.39 1.41-1.41-4.39-4.39A8 8 0 0 0 10 2zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12z"/></svg>
+                    <input type="search" placeholder="Search projects..." style={{border:0,outline:0,background:'transparent',width:'100%'}}/>
+                  </div>
                 </div>
               </div>
 
-              <div style={{display:'grid',gridTemplateColumns:'2fr 360px',gap:12}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'12px 0',borderTop:'1px solid #eef1f7'}}>
                 <div>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
-                    {projectSummaries.map(p => (
-                      <div key={p.project_id} style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:10}}>
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                          <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                            <div style={{width:44,height:44,borderRadius:10,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',fontWeight:800,color:'var(--text-h)'}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
-                            <div>
-                              <div style={{fontWeight:800,color:'var(--text-h)'}}>{p.project_name}</div>
-                              <div style={{fontSize:12,color:'var(--muted)'}}>{p.project_id}</div>
+                  <button style={{display:'inline-flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:10,background:'#fff',border:'1px solid #e3e6ef',fontWeight:800,cursor:'pointer'}}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="#3b4251"><path d="M3 5h18v2H3V5zm4 6h10v2H7v-2zm3 6h4v2h-4v-2z"/></svg>
+                    Filter
+                  </button>
+                </div>
+
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999,fontSize:12}}>Last 30 Days</div>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#fff',border:'1px solid #e6e6ef',borderRadius:999,fontSize:12}}><span style={{width:8,height:8,borderRadius:999,background:'#22c55e'}}></span> Last Sync: {lastSync || 'n/a'}</div>
+                </div>
+              </div>
+
+              <div style={{paddingTop:12}}>
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:13}} aria-label="DEX Projects">
+                    <thead>
+                      <tr style={{textAlign:'left',color:'#6a7280',fontWeight:900,fontSize:12,borderBottom:'1px solid #e6e9f2'}}>
+                        <th style={{padding:'12px 10px'}}>Project</th>
+                        <th style={{padding:'12px 10px'}}>PM / DM</th>
+                        <th style={{padding:'12px 10px'}}>Hours</th>
+                        <th style={{padding:'12px 10px'}}>Last Sync</th>
+                        <th style={{padding:'12px 10px'}}>Key Risks</th>
+                        <th style={{padding:'12px 10px'}} aria-label="DEX action" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {projectSummaries.length === 0 && (
+                        <tr><td colSpan={6} style={{padding:'24px 10px',color:'#6a7280'}}>No project data available.</td></tr>
+                      )}
+                      {projectSummaries.map((p) => (
+                        <tr key={p.project_id}>
+                          <td style={{padding:'12px 10px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                              <div style={{width:36,height:36,borderRadius:999,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',border:'1px solid rgba(0,0,0,.06)',color:'#1f2937',fontWeight:900}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
+                              <div>
+                                <div style={{fontWeight:900}}>{p.project_name}</div>
+                                <div style={{fontSize:12,color:'#6a7280',marginTop:4}}>{p.project_id}</div>
+                              </div>
                             </div>
-                          </div>
-                          <div style={{textAlign:'right'}}>
-                            <div style={{fontWeight:900,color:'var(--text-h)'}}>{p.total_hours || 0}h</div>
-                            <div style={{fontSize:12,color:'var(--muted)',marginTop:6}}>{p.last_tx || 'n/a'}</div>
-                          </div>
-                        </div>
+                          </td>
+                          <td style={{padding:'12px 10px',verticalAlign:'top'}}>{(p.people && p.people.map(x=>x.person).slice(0,2).join(' / ')) || ''}</td>
+                          <td style={{padding:'12px 10px',verticalAlign:'top'}}>{p.total_hours || 0}h</td>
+                          <td style={{padding:'12px 10px',verticalAlign:'top',color:'#6a7280'}}>{p.last_tx || 'n/a'}</td>
+                          <td style={{padding:'12px 10px',verticalAlign:'top',color:'#2a2a2c'}}>{(p.key_risks || []).slice(0,2).join('; ') || 'None'}</td>
+                          <td style={{padding:'12px 10px',verticalAlign:'top'}}>
+                            <button onClick={() => openDexViewModal(p)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer'}}>View</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                            {(p.people||[]).slice(0,3).map((pp, i) => (
-                              <div key={i} style={{fontSize:12,color:'var(--text)',background:'var(--card-muted-bg)',padding:'6px 8px',borderRadius:8}}>{pp.person}</div>
-                            ))}
-                          </div>
-                          <div style={{display:'flex',gap:8}}>
-                            <button onClick={() => openDexModal(p)} style={{padding:'6px 10px',borderRadius:8,border:`1px solid var(--card-border)`,background:'var(--card-bg)',fontWeight:800,cursor:'pointer'}}>Open</button>
-                          </div>
-                        </div>
-
-                        <div style={{fontSize:13,color:'var(--text)'}}>
-                          <strong>Key risks:</strong> {(p.key_risks || []).slice(0,2).join('; ') || 'None'}
+              {/* Separate DEX tab View modal */}
+              {dexViewModalOpen && (
+                <div style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'rgba(2,6,23,0.55)',zIndex:10000,padding:20}} role="dialog" aria-modal="true">
+                  <div style={{width:1300,maxWidth:'98vw',maxHeight:'92%',overflow:'hidden',background:'#fff',borderRadius:12,padding:0,boxShadow:'0 20px 60px rgba(2,6,23,0.35)',border:'1px solid rgba(15,23,42,0.06)',display:'flex',flexDirection:'column',...modalBaseFont}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #eef1f6'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:12}}>
+                        <div style={{width:48,height:48,display:'grid',placeItems:'center',borderRadius:10,background:'linear-gradient(135deg,#e0e7ff,#c7d2fe)',color:'#0f172a',fontWeight:800,fontSize:14}}>{(dexViewModalProject?.project_name||'').charAt(0).toUpperCase()}</div>
+                        <div>
+                          <div style={{fontSize:15,fontWeight:800,color:'#0f172a'}}>{dexViewModalProject?.project_name || 'Project'}</div>
+                          <div style={{fontSize:12,color:'#6b7280',marginTop:4}}>{dexViewModalProject?.people?.[0]?.person || 'Project Manager'}</div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12}}>
-                    <div style={{fontWeight:800,marginBottom:8,color:'var(--text-h)'}}>Risk Categories</div>
-                    <div>
-                      {Object.keys(dexRiskCategories).length > 0 ? Object.entries(dexRiskCategories).map(([cat,count]) => (
-                        <div key={cat} style={{display:'flex',justifyContent:'space-between',padding:'6px 0'}}>
-                          <div style={{color:'var(--text)'}}>{cat}</div>
-                          <div style={{fontWeight:800,color:'var(--text-h)'}}>{count}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <button onClick={saveDexViewModalAssignments} aria-label="Save DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                          Save
+                        </button>
+                        <button onClick={() => setDexViewModalReadOnly(false)} aria-label="Edit DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#f59e0b',border:'1px solid #d97706',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                          Edit
+                        </button>
+                        {dexViewSaveMessage && <div style={{fontSize:12,color:dexViewSaveMessage === 'Saved' ? '#065f46' : '#b91c1c',fontWeight:700}}>{dexViewSaveMessage}</div>}
+                        <button onClick={closeDexViewModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:'pointer'}}>Close</button>
+                      </div>
+                    </div>
+
+                    <div style={{padding:16,overflow:'auto'}}>
+                      <div style={{marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'10px 12px',borderRadius:10,border:'1px solid #dbeafe',background:'linear-gradient(135deg,#eff6ff,#f8fafc)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={{width:28,height:28,borderRadius:8,display:'grid',placeItems:'center',background:'#dbeafe',border:'1px solid #bfdbfe',color:'#1d4ed8'}}>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                          </div>
+                          <div>
+                            <div style={{fontSize:12,fontWeight:800,color:'#1e3a8a',letterSpacing:0.2,textTransform:'uppercase'}}>AI Risk Detection</div>
+                            <div style={{fontSize:13,color:'#334155'}}>These are AI identified risks for this project.</div>
+                          </div>
                         </div>
-                      )) : <div style={{color:'var(--muted)'}}>No risks detected</div>}
+                        <div style={{fontSize:12,fontWeight:800,color:'#0f172a',background:'#ffffff',border:'1px solid #cbd5e1',borderRadius:999,padding:'6px 10px'}}>
+                          {(dexViewModalProject?.key_risks || []).length} risks
+                        </div>
+                      </div>
+                      <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,tableLayout:'fixed'}}>
+                          <colgroup>
+                            <col style={{width:'20'}} />
+                            <col style={{width:'14%'}} />
+                            <col style={{width:'43%'}} />
+                            <col style={{width:'18%'}} />
+                            <col style={{width:'20%'}} />
+                          </colgroup>
+                          <thead style={{background:'#f8fafc'}}>
+                            <tr style={{textAlign:'left'}}>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'30%'}}>Risk</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'14%'}}>Risk level</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'18%'}}>RAG Status</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'20%'}}>Publish</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dexViewModalProject?.key_risks && dexViewModalProject.key_risks.length > 0 ? (
+                              dexViewModalProject.key_risks.map((rk, idx) => (
+                                <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
+                                    <div>{generateMitigationForRisk(rk)}</div>
+                                  </td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
+                                    {(() => {
+                                      const dexRisk = dexViewMitigationAssignments[idx]?.dexRisk || 'Amber'
+                                      const riskTone = dexRisk === 'Red'
+                                        ? { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', dot: '#ef4444' }
+                                        : dexRisk === 'Green'
+                                          ? { bg: '#ecfdf5', border: '#bbf7d0', text: '#166534', dot: '#22c55e' }
+                                          : { bg: '#fff7ed', border: '#fed7aa', text: '#b45309', dot: '#f59e0b' }
+
+                                      return (
+                                        <div style={{display:'grid',gap:8}}>
+                                          <select
+                                            value={dexRisk}
+                                            disabled={dexViewModalReadOnly}
+                                            onChange={(e) => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), dexRisk: e.target.value } }))}
+                                            style={{width:'100%',padding:'6px 8px',borderRadius:8,border:'1px solid #dbe3ef',fontSize:12,fontWeight:700,background:dexViewModalReadOnly ? '#f8fafc' : '#fff',color:'#0f172a'}}
+                                          >
+                                            <option value="Red">Red</option>
+                                            <option value="Amber">Amber</option>
+                                            <option value="Green">Green</option>
+                                          </select>
+                                          <div style={{display:'inline-flex',alignItems:'center',gap:6,width:'fit-content',padding:'4px 8px',borderRadius:999,border:`1px solid ${riskTone.border}`,background:riskTone.bg,color:riskTone.text,fontWeight:800,fontSize:11}}>
+                                            <span style={{width:8,height:8,borderRadius:999,background:riskTone.dot,boxShadow:'0 0 0 2px rgba(255,255,255,0.7)'}}></span>
+                                            {dexRisk}
+                                          </div>
+                                        </div>
+                                      )
+                                    })()}
+                                  </td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
+                                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                                      <button disabled={dexViewModalReadOnly} onClick={() => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Published' } }))} style={{padding:'6px 10px',borderRadius:6,background:'#d97706',color:'#fff',border:0,cursor:dexViewModalReadOnly ? 'not-allowed' : 'pointer',opacity:dexViewModalReadOnly ? 0.6 : 1,fontWeight:700}}>Publish</button>
+                                      <button disabled={dexViewModalReadOnly} onClick={() => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Rejected' } }))} style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:dexViewModalReadOnly ? 'not-allowed' : 'pointer',opacity:dexViewModalReadOnly ? 0.6 : 1,fontWeight:700}}>Reject</button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr><td style={{padding:16}} colSpan={5}>No risks available.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
-
-                  <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12}}>
-                    <div style={{fontWeight:800,marginBottom:8,color:'var(--text-h)'}}>Top Projects</div>
-                    <div style={{display:'grid',gap:8}}>
-                      {dexTopProjects.map(p => (
-                        <div key={p.project_id} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                          <div style={{fontWeight:700,color:'var(--text-h)'}}>{p.project_name}</div>
-                          <div style={{fontSize:13,color:'var(--muted)'}}>{p.total_hours || 0}h</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
           {/* DSAI tab content (KPIs + table) */}
