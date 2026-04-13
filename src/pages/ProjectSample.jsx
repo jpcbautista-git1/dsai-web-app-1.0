@@ -546,7 +546,7 @@ export default function ProjectSample(){
             <button onClick={()=>setActiveTab('tier')} aria-selected={activeTab==='tier'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='tier' ? '#eef2ff' : '#fafafa',color: activeTab==='tier' ? '#4338ca' : '#374151',cursor:'pointer'}}>Tier Classification</button>
 
             {/* DSAI tab (matches original HTML id for scripts) */}
-            <button id="tab-dsai" onClick={()=>{ setActiveTab('dsai'); setDsaiOnboardOpen(true); }} aria-selected={activeTab==='dsai'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='dsai' ? '#550a8a' : '#6a0dad',color:'#fff',cursor:'pointer'}}>Onboard to DSAI</button>
+            <button id="tab-dsai" onClick={()=>{ setActiveTab('dsai'); if(!dsaiOnboardSaved) setDsaiOnboardOpen(true); }} aria-selected={activeTab==='dsai'} style={{padding:'8px 12px',borderRadius:8,border:'none',background: activeTab==='dsai' ? '#550a8a' : '#6a0dad',color:'#fff',cursor:'pointer'}}>{dsaiOnboardSaved ? 'DSAI Plan' : 'Onboard to DSAI'}</button>
 
             <div style={{flex:1}} />
             {/* removed header onboard button — Onboard button is placed inside the DSAI panel to preserve original DOM id (btnOnboard) */}
@@ -815,9 +815,10 @@ export default function ProjectSample(){
                   </table>
                 </div>
 
-                {/* moved Clear button to bottom of the summary view */}
+                {/* moved Clear/Edit buttons to bottom of the summary view */}
                 {dsaiOnboardSaved && (
-                  <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}>
+                  <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:18}}>
+                    <button onClick={()=>setDsaiOnboardOpen(true)} style={{background:'#6a0dad',color:'#fff',border:'none',padding:'8px 12px',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Edit Plan</button>
                     <button onClick={clearDsaiInline} style={{background:'#ef4444',color:'#fff',border:'none',padding:'8px 12px',borderRadius:8,fontWeight:700,cursor:'pointer'}}>Clear</button>
                   </div>
                 )}
