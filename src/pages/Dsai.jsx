@@ -123,7 +123,42 @@ export default function Dsai(){
     return value || ''
   }
 
-  // format date/time for display (e.g. "Apr 9, 2026 9:30 AM")
+  const getPublishedDexViewItems = (project) => {
+    try {
+      const raw = localStorage.getItem(DEX_VIEW_MODAL_SAVE_KEY)
+      if (!raw || !project) return []
+      const savedByProject = JSON.parse(raw)
+      const projectKey = project.project_id || project.project_name || 'unknown'
+      const projectState = savedByProject?.[projectKey] || {}
+      const assignments = projectState.assignments || {}
+      const savedAiMitigations = projectState.aiMitigations || {}
+      const risks = project.key_risks || []
+
+      return risks
+        .map((risk, idx) => {
+          const assignment = assignments[idx] || {}
+          const publishStatus = normalizeDexViewPublishStatus(assignment.publish)
+          if (publishStatus !== 'Published') return null
+
+          const aiMitigation = savedAiMitigations[idx] || {}
+          return {
+            sourceIndex: idx,
+            risk,
+            riskLevel: aiMitigation.riskLevel || inferRiskLevel(risk),
+            mitigation: aiMitigation.mitigation || generateMitigationForRisk(risk),
+            riskPriority: assignment.riskPriority || 'Medium',
+            publish: publishStatus
+          }
+        })
+        .filter(Boolean)
+    } catch (e) {
+      return []
+    }
+  }
+
+  const hasPublishedMitigations = (project) => getPublishedDexViewItems(project).length > 0
+
+   // format date/time for display (e.g. "Apr 9, 2026 9:30 AM")
   const formatDateTime = (d) => {
     if (!d) return ''
     const dt = (d instanceof Date) ? d : new Date(d)
@@ -386,13 +421,6 @@ export default function Dsai(){
     }
   }, [dexViewModalOpen, dexViewModalProject])
 
-  // auto-generate mitigations when DEX View modal opens
-  React.useEffect(() => {
-    if (dexViewModalOpen && dexViewModalProject && !dexViewGeneratingMitigations) {
-      handleGenerateViewMitigations()
-    }
-  }, [dexViewModalOpen, dexViewModalProject])
-
   const handleGenerateViewMitigations = async () => {
     if (!dexViewModalProject?.key_risks || dexViewModalProject.key_risks.length === 0) {
       setDexViewMitigationGenError('No risks to generate mitigations for.')
@@ -543,7 +571,7 @@ export default function Dsai(){
 
   const validateDexModalAssignments = () => {
     const errors = {}
-    const risks = dexModalProject?.key_risks || []
+    const risks = dexModalPublishedItems
 
     risks.forEach((_, idx) => {
       const row = mitigationAssignments[idx] || {}
@@ -568,7 +596,7 @@ export default function Dsai(){
     }
     try {
       // Persist explicit workflowStatus so reopened rows keep the chosen/default value.
-      const risks = dexModalProject?.key_risks || []
+      const risks = dexModalPublishedItems
       const normalizedAssignments = { ...mitigationAssignments }
       risks.forEach((_, idx) => {
         const row = normalizedAssignments[idx] || {}
@@ -1049,7 +1077,11 @@ export default function Dsai(){
   }
 
   // DEX dashboard derived metrics (filtered to onboarded projects only)
+  const dexModalPublishedItems = getPublishedDexViewItems(dexModalProject)
   const dexOnboardedProjects = projectSummaries.filter(p => dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name))
+  const dsaiPublishedProjects = projectSummaries.filter(
+    p => (dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)) && hasPublishedMitigations(p)
+  )
   const dexTotalProjects = dexOnboardedProjects.length
   const dexAtRisk = dexOnboardedProjects.filter(p => Array.isArray(p.key_risks) && p.key_risks.length > 0).length
   const dexSynced = dexOnboardedProjects.filter(p => p.last_tx).length
@@ -1501,13 +1533,12 @@ export default function Dsai(){
                                   </td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
                                     {(() => {
-                                      const status = dexViewMitigationAssignments[idx]?.publish || ''
-                                      if (!status) {
-                                        return null
-                                      }
+                                      const status = dexViewMitigationAssignments[idx]?.publish || 'Pending'
                                       const tone = status === 'Published'
                                         ? { bg: '#ecfdf5', border: '#bbf7d0', text: '#166534', dot: '#22c55e' }
-                                        : { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', dot: '#ef4444' }
+                                        : status === 'Rejected'
+                                          ? { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', dot: '#ef4444' }
+                                          : { bg: '#f3f4f6', border: '#d1d5db', text: '#374151', dot: '#9ca3af' }
                                       return (
                                         <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 8px',borderRadius:999,border:`1px solid ${tone.border}`,background:tone.bg,color:tone.text,fontWeight:800,fontSize:11}}>
                                           <span style={{width:8,height:8,borderRadius:999,background:tone.dot}}></span>
@@ -1566,7 +1597,7 @@ export default function Dsai(){
                   <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <div style={{display:'flex',flexDirection:'column',gap:4}}>
                       <div style={{fontSize:10,color:'#6a7280',fontWeight:700}}>Total Projects</div>
-                      <div style={{fontSize:18,fontWeight:900,color:'#2a2f36'}}>{projectSummaries.filter(p => dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)).length}</div>
+                      <div style={{fontSize:18,fontWeight:900,color:'#2a2f36'}}>{dsaiPublishedProjects.length}</div>
                     </div>
                     <div style={{width:40,height:40,display:'grid',placeItems:'center',borderRadius:10,background:'#eef4ff',border:'1px solid rgba(0,0,0,.06)'}}>
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="#2563eb"><path d="M4 4h7v7H4V4zm9 0h7v5h-7V4zM4 13h7v7H4v-7zm9 3h7v4h-7v-4z"/></svg>
@@ -1672,14 +1703,10 @@ export default function Dsai(){
                       </tr>
                     </thead>
                     <tbody>
-                      {projectSummaries.filter(p =>
-                        dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)
-                      ).length === 0 && (
-                        <tr><td colSpan={6} style={{padding:'24px 14px',color:'#6a7280'}}>No projects onboarded to DSAI yet.</td></tr>
-                      )}
-                      {projectSummaries.filter(p =>
-                        dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)
-                      ).map((p) => (
+                      {dsaiPublishedProjects.length === 0 && (
+                         <tr><td colSpan={6} style={{padding:'24px 14px',color:'#6a7280'}}>No projects with published mitigations yet.</td></tr>
+                       )}
+                      {dsaiPublishedProjects.map((p) => (
                         <tr key={p.project_id}>
                           <td style={{padding:'14px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -1696,8 +1723,10 @@ export default function Dsai(){
                           <td style={{padding:'14px',verticalAlign:'middle',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
                           <td style={{padding:'14px',verticalAlign:'middle',color:'#2a2a2c'}}>
                             <div style={{display:'flex',alignItems:'center',justifyContent:'flex-start',gap:100,flexWrap:'wrap'}}>
-                              <ul style={{margin:0,paddingLeft:16}}>{/* placeholder risks */}
-                                <li>{p.total_hours} hrs</li>
+                              <ul style={{margin:0,paddingLeft:16}}>
+                                {getPublishedDexViewItems(p).slice(0, 2).map((item) => (
+                                  <li key={item.sourceIndex}>{item.risk}</li>
+                                ))}
                               </ul>
                               <button onClick={() => openDexModal(p)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer',flex:'0 0 auto',whiteSpace:'nowrap'}}>DEX</button>
                             </div>
@@ -1756,19 +1785,6 @@ export default function Dsai(){
                         Explanation: (AI) Summary — the risks captured from the report are shown below. Use the actions to export or close.
                       </div>
 
-                      <div style={{marginBottom:12,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-                        <button onClick={handleGenerateMitigationsWithGemini} disabled={dexGeneratingMitigations} aria-label="Generate mitigations with Gemini" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:dexGeneratingMitigations ? '#374151' : '#111827',border:dexGeneratingMitigations ? '1px solid #4b5563' : '1px solid #000',color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'wait' : 'pointer'}}>
-                          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
-                            <path d="M12 2v6m0 0l-3-3m3 3l3-3M4 7v10m0 0v2c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-2m0 0V9c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v8" />
-                          </svg>
-                          <span style={{display:'inline-block',transform:'translateY(-1px)'}}>{dexGeneratingMitigations ? 'Generating...' : 'Generate Mitigations (Gemini)'}</span>
-                        </button>
-                        <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'#374151',cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',userSelect:'none',opacity:dexGeneratingMitigations ? 0.6 : 1}}>
-                          <input type="checkbox" checked={dexIntegrateBaseline} disabled={dexGeneratingMitigations} onChange={e => setDexIntegrateBaseline(e.target.checked)} style={{width:15,height:15,cursor:dexGeneratingMitigations ? 'not-allowed' : 'pointer',accentColor:'#111827'}} />
-                          Integrate with baseline mitigations
-                        </label>
-                      </div>
-
                       <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
                         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,tableLayout:'fixed'}}>
                           <colgroup>
@@ -1790,13 +1806,13 @@ export default function Dsai(){
                             </tr>
                           </thead>
                           <tbody>
-                            {dexModalProject?.key_risks && dexModalProject.key_risks.length > 0 ? (
-                              dexModalProject.key_risks.map((rk, idx) => (
+                            {dexModalPublishedItems.length > 0 ? (
+                              dexModalPublishedItems.map((item, idx) => (
                                 <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{item.risk}</td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}>
                                     {(() => {
-                                      const level = aiMitigations[idx]?.riskLevel || 'High'
+                                      const level = item.riskLevel || 'High'
                                       const bgColor = level === 'High' ? '#fff7ed' : level === 'Low' ? '#ecfdf5' : '#fef3c7'
                                       const textColor = level === 'High' ? '#b91c1c' : level === 'Low' ? '#166534' : '#b45309'
                                       return <span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:bgColor,color:textColor,fontWeight:700,fontSize:12}}>{level}</span>
@@ -1806,8 +1822,8 @@ export default function Dsai(){
                                   {/* Suggested mitigation - AI generated */}
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
                                     <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>
-                                      {aiMitigations[idx]?.mitigation
-                                        ? (dexIntegrateBaseline ? buildSuggestedMitigation(rk, aiMitigations[idx].mitigation) : aiMitigations[idx].mitigation)
+                                      {item.mitigation
+                                        ? (dexIntegrateBaseline ? buildSuggestedMitigation(item.risk, item.mitigation) : item.mitigation)
                                         : ''}
                                     </div>
                                   </td>
@@ -1886,7 +1902,7 @@ export default function Dsai(){
                                 </tr>
                               ))
                             ) : (
-                              <tr><td style={{padding:16}} colSpan={6}>No risks available.</td></tr>
+                              <tr><td style={{padding:16}} colSpan={6}>No published mitigations available.</td></tr>
                             )}
                           </tbody>
                         </table>
