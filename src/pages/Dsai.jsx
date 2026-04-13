@@ -90,6 +90,7 @@ export default function Dsai(){
   const [dexViewMitigationAssignments, setDexViewMitigationAssignments] = React.useState({})
   const [dexViewModalReadOnly, setDexViewModalReadOnly] = React.useState(false)
   const [dexViewSaveMessage, setDexViewSaveMessage] = React.useState('')
+  const [publishTooltip, setPublishTooltip] = React.useState(null)
 
   const openDexViewModal = (project) => {
     setDexViewModalProject(project)
@@ -103,6 +104,7 @@ export default function Dsai(){
     setDexViewMitigationAssignments({})
     setDexViewModalReadOnly(false)
     setDexViewSaveMessage('')
+    setPublishTooltip(null)
   }
 
   // load previously saved DEX View assignments for selected project
@@ -134,9 +136,10 @@ export default function Dsai(){
       const normalizedAssignments = { ...dexViewMitigationAssignments }
       risks.forEach((_, idx) => {
         const row = normalizedAssignments[idx] || {}
+        const mappedPriority = row.riskPriority || (row.dexRisk === 'Red' ? 'High' : row.dexRisk === 'Green' ? 'Low' : 'Medium')
         normalizedAssignments[idx] = {
           ...row,
-          dexRisk: row.dexRisk || 'Amber',
+          riskPriority: mappedPriority,
           publish: row.publish || ''
         }
       })
@@ -921,7 +924,7 @@ export default function Dsai(){
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'30%'}}>Risk</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'14%'}}>Risk level</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151'}}>Suggested Mitigation</th>
-                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'18%'}}>RAG Status</th>
+                              <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'18%'}}>Risk Priority</th>
                               <th style={{padding:12,borderBottom:'1px solid #eef1f6',fontWeight:700,color:'#374151',width:'20%'}}>Publish</th>
                             </tr>
                           </thead>
@@ -936,37 +939,56 @@ export default function Dsai(){
                                   </td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
                                     {(() => {
-                                      const dexRisk = dexViewMitigationAssignments[idx]?.dexRisk || 'Amber'
-                                      const riskTone = dexRisk === 'Red'
+                                      const saved = dexViewMitigationAssignments[idx] || {}
+                                      const riskPriority = saved.riskPriority || (saved.dexRisk === 'Red' ? 'High' : saved.dexRisk === 'Green' ? 'Low' : 'Medium')
+                                      const riskTone = riskPriority === 'High'
                                         ? { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', dot: '#ef4444' }
-                                        : dexRisk === 'Green'
+                                        : riskPriority === 'Low'
                                           ? { bg: '#ecfdf5', border: '#bbf7d0', text: '#166534', dot: '#22c55e' }
                                           : { bg: '#fff7ed', border: '#fed7aa', text: '#b45309', dot: '#f59e0b' }
 
                                       return (
                                         <div style={{display:'grid',gap:8}}>
                                           <select
-                                            value={dexRisk}
+                                            value={riskPriority}
                                             disabled={dexViewModalReadOnly}
-                                            onChange={(e) => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), dexRisk: e.target.value } }))}
+                                            onChange={(e) => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), riskPriority: e.target.value } }))}
                                             style={{width:'100%',padding:'6px 8px',borderRadius:8,border:'1px solid #dbe3ef',fontSize:12,fontWeight:700,background:dexViewModalReadOnly ? '#f8fafc' : '#fff',color:'#0f172a'}}
                                           >
-                                            <option value="Red">Red</option>
-                                            <option value="Amber">Amber</option>
-                                            <option value="Green">Green</option>
+                                            <option value="High">High</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="Low">Low</option>
                                           </select>
                                           <div style={{display:'inline-flex',alignItems:'center',gap:6,width:'fit-content',padding:'4px 8px',borderRadius:999,border:`1px solid ${riskTone.border}`,background:riskTone.bg,color:riskTone.text,fontWeight:800,fontSize:11}}>
                                             <span style={{width:8,height:8,borderRadius:999,background:riskTone.dot,boxShadow:'0 0 0 2px rgba(255,255,255,0.7)'}}></span>
-                                            {dexRisk}
+                                            {riskPriority}
                                           </div>
                                         </div>
                                       )
                                     })()}
                                   </td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
-                                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                                      <button disabled={dexViewModalReadOnly} onClick={() => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Published' } }))} style={{padding:'6px 10px',borderRadius:6,background:'#d97706',color:'#fff',border:0,cursor:dexViewModalReadOnly ? 'not-allowed' : 'pointer',opacity:dexViewModalReadOnly ? 0.6 : 1,fontWeight:700}}>Publish</button>
+                                    <div style={{display:'grid',gap:8}}>
+                                      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                                        <button
+                                          onMouseEnter={(e) => {
+                                            const r = e.currentTarget.getBoundingClientRect()
+                                            const tooltipWidth = 300
+                                            const left = Math.min(Math.max(12, r.left), window.innerWidth - tooltipWidth - 12)
+                                            const top = r.top > 70 ? (r.top - 10) : (r.bottom + 10)
+                                            const placement = r.top > 70 ? 'top' : 'bottom'
+                                            setPublishTooltip({ row: idx, left, top, placement })
+                                          }}
+                                          onMouseLeave={() => setPublishTooltip(null)}
+                                          disabled={dexViewModalReadOnly}
+                                          onClick={() => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Published' } }))}
+                                          style={{padding:'6px 10px',borderRadius:6,background:'#d97706',color:'#fff',border:0,cursor:dexViewModalReadOnly ? 'not-allowed' : 'pointer',opacity:dexViewModalReadOnly ? 0.6 : 1,fontWeight:700}}
+                                        >
+                                          Publish
+                                        </button>
+
                                       <button disabled={dexViewModalReadOnly} onClick={() => setDexViewMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), publish: 'Rejected' } }))} style={{padding:'6px 10px',borderRadius:6,background:'#ef4444',color:'#fff',border:0,cursor:dexViewModalReadOnly ? 'not-allowed' : 'pointer',opacity:dexViewModalReadOnly ? 0.6 : 1,fontWeight:700}}>Reject</button>
+                                      </div>
                                     </div>
                                   </td>
                                 </tr>
@@ -978,6 +1000,29 @@ export default function Dsai(){
                         </table>
                       </div>
                     </div>
+                    {publishTooltip && (
+                      <div
+                        style={{
+                          position:'fixed',
+                          left: publishTooltip.left,
+                          top: publishTooltip.top,
+                          transform: publishTooltip.placement === 'top' ? 'translateY(-100%)' : 'none',
+                          zIndex: 11000,
+                          width: 300,
+                          padding:'8px 10px',
+                          borderRadius:8,
+                          background:'#fffbeb',
+                          border:'1px solid #fcd34d',
+                          color:'#7c2d12',
+                          fontSize:11,
+                          lineHeight:1.35,
+                          boxShadow:'0 10px 24px rgba(15,23,42,0.14)',
+                          pointerEvents:'none'
+                        }}
+                      >
+                        Publishing will make the AI-recommended risk mitigation available for this item.
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
