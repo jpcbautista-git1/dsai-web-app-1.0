@@ -42,25 +42,26 @@ export default function ProjectSample(){
   const [resourceErrors, setResourceErrors] = useState({})
   const [dsaiErrors, setDsaiErrors] = useState({})
 
+  // selected project payload from Projects page
+  const [selectedProject, setSelectedProject] = useState(null)
+
   // derive projectName from route param when present (moved to top-level hook)
   const params = useParams()
   useEffect(() => {
-    if (params && params.id) {
-      try {
+    try {
+      const rawSel = localStorage.getItem('dsaiSelectedProject')
+      if (rawSel) {
+        const parsed = JSON.parse(rawSel)
+        setSelectedProject(parsed)
+        const pName = parsed?.title || parsed?.name || parsed?.projectName || parsed?.id
+        if (pName) setDsaiData(s => ({ ...s, projectName: pName }))
+        return
+      }
+      if (params && params.id) {
         const pretty = params.id.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
         setDsaiData(s => ({ ...s, projectName: pretty }))
-      } catch (e) { /* ignore */ }
-    } else {
-      // fallback: try selected project from localStorage
-      try {
-        const rawSel = localStorage.getItem('dsaiSelectedProject')
-        if (rawSel) {
-          const parsed = JSON.parse(rawSel)
-          const pName = parsed?.title || parsed?.name || parsed?.projectName || parsed?.id
-          if (pName) setDsaiData(s => ({ ...s, projectName: pName }))
-        }
-      } catch (e) { /* ignore */ }
-    }
+      }
+    } catch (e) { /* ignore */ }
   }, [params?.id])
 
   function validateModal(){
@@ -546,94 +547,119 @@ export default function ProjectSample(){
             <form id="projectForm" style={{padding:20}} className="panel">
              {activeTab==='basic' && (
                <div>
-                 {/* Unified 2-column grid (matches project_sample two-column layout) */}
-                 <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(320px,1fr))',gap:12}} className="form-grid">
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="projectName" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Project Name <span style={{color:'#ef4444'}}>*</span></label>
-                     <input id="projectName" name="projectName" type="text" defaultValue="Website Redesign" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
-                   </div>
+                 {(() => {
+                   const details = selectedProject?.details || {}
+                   const labelStyle = {fontSize:12,fontWeight:600,color:'#374151'}
+                   const fieldStyle = {display:'flex',flexDirection:'column',gap:6}
+                   const inputStyle = {padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}
+                   return (
+                     <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(320px,1fr))',gap:12}} className="form-grid">
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="projectName" style={labelStyle}>Project Name <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="projectName" name="projectName" type="text" defaultValue={selectedProject?.title || ''} style={inputStyle} />
+                       </div>
 
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="projectStart" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Project Start Date <span style={{color:'#ef4444'}}>*</span></label>
-                     <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                       <input id="projectStart" name="projectStart" type="text" defaultValue="01/04/2026" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',flex:1,background:'#f3f4f6'}} />
-                       <div style={{width:36,height:36,display:'grid',placeItems:'center',background:'#fff',borderRadius:8,border:'1px solid #e7e9ee'}}>📅</div>
-                       <input id="projectStart_iso" type="hidden" defaultValue="2026-04-01" />
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="projectStart" style={labelStyle}>Project Start Date <span style={{color:'#ef4444'}}>*</span></label>
+                         <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                           <input id="projectStart" name="projectStart" type="text" defaultValue={details.startDate || ''} placeholder="dd/mm/yyyy" style={{...inputStyle,flex:1}} />
+                           <div style={{width:36,height:36,display:'grid',placeItems:'center',background:'#fff',borderRadius:8,border:'1px solid #e7e9ee'}}>📅</div>
+                         </div>
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="projectEnd" style={labelStyle}>Project End Date <span style={{color:'#ef4444'}}>*</span></label>
+                         <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                           <input id="projectEnd" name="projectEnd" type="text" defaultValue={details.endDate || ''} placeholder="dd/mm/yyyy" style={{...inputStyle,flex:1}} />
+                           <div style={{width:36,height:36,display:'grid',placeItems:'center',background:'#fff',borderRadius:8,border:'1px solid #e7e9ee'}}>📅</div>
+                         </div>
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="deliveryOwner" style={labelStyle}>Project delivery owned by</label>
+                         <select id="deliveryOwner" name="deliveryOwner" defaultValue={details.deliveryOwnedBy || ''} style={inputStyle}>
+                           <option value="">--</option>
+                           <option>Data Engineering</option>
+                           <option>SAP</option>
+                           <option>ServiceNow</option>
+                           <option>Cybersecurity</option>
+                           <option>CSS</option>
+                           <option>Oracle</option>
+                         </select>
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="projectManager" style={labelStyle}>Project Manager <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="projectManager" name="projectManager" type="text" defaultValue={details.projectManager || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="primaryLocation" style={labelStyle}>Primary Location <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="primaryLocation" name="primaryLocation" type="text" defaultValue={details.primaryLocation || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="pmDelegate" style={labelStyle}>Project Manager Delegate</label>
+                         <input id="pmDelegate" name="pmDelegate" type="text" defaultValue={details.pmDelegate || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="competencyHead" style={labelStyle}>Competency Head <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="competencyHead" name="competencyHead" type="text" defaultValue={details.competencyHead || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="deliveryManager" style={labelStyle}>Delivery Manager <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="deliveryManager" name="deliveryManager" type="text" defaultValue={details.deliveryManager || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="subCompetency" style={labelStyle}>Sub Competency</label>
+                         <input id="subCompetency" name="subCompetency" type="text" defaultValue={details.subCompetency || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="area" style={labelStyle}>Area <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="area" name="area" type="text" defaultValue={details.area || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="projectChargeCode" style={labelStyle}>Project Charge Code <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="projectChargeCode" name="projectChargeCode" type="text" defaultValue={details.chargeCode || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="clientCountry" style={labelStyle}>Client Country <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="clientCountry" name="clientCountry" type="text" defaultValue={details.clientCountry || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="methodology" style={labelStyle}>Methodology Used</label>
+                         <input id="methodology" name="methodology" type="text" defaultValue={details.methodology || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="secondaryLocation" style={labelStyle}>Secondary Location</label>
+                         <input id="secondaryLocation" name="secondaryLocation" type="text" defaultValue={details.secondaryLocation || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="accountName" style={labelStyle}>Account Name</label>
+                         <input id="accountName" name="accountName" type="text" defaultValue={details.accountName || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={fieldStyle} className="field">
+                         <label htmlFor="lifeCycle" style={labelStyle}>Life Cycle <span style={{color:'#ef4444'}}>*</span></label>
+                         <input id="lifeCycle" name="lifeCycle" type="text" defaultValue={details.lifeCycle || ''} style={inputStyle} />
+                       </div>
+
+                       <div style={{gridColumn:'1 / -1',marginTop:12}}>
+                         <label htmlFor="workDescription" style={labelStyle}>Work Description</label>
+                         <textarea id="workDescription" name="workDescription" placeholder="Add a short description of the project scope, deliverables, and constraints..." style={{width:'100%',padding:12,borderRadius:12,border:'1px solid #e7e9ee',minHeight:120,boxSizing:'border-box',background:'#f3f4f6'}} defaultValue={details.workDescription || ''} />
+                       </div>
                      </div>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="projectEnd" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Project End Date <span style={{color:'#ef4444'}}>*</span></label>
-                     <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                       <input id="projectEnd" name="projectEnd" type="text" defaultValue="" placeholder="dd/mm/yyyy" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',flex:1,background:'#f3f4f6'}} />
-                       <div style={{width:36,height:36,display:'grid',placeItems:'center',background:'#fff',borderRadius:8,border:'1px solid #e7e9ee'}}>📅</div>
-                       <input id="projectEnd_iso" type="hidden" defaultValue="" />
-                     </div>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="deliveryOwner" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Project delivery owned by</label>
-                     <select id="deliveryOwner" name="deliveryOwner" defaultValue="Data Engineering" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>Data Engineering</option>
-                       <option>SAP</option>
-                       <option>Cybersecurity</option>
-                     </select>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="deliveryRegion" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Delivery Region</label>
-                     <select id="deliveryRegion" name="deliveryRegion" defaultValue="APAC" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>APAC</option>
-                       <option>AMER</option>
-                     </select>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="projectChargeCode" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Project Charge Code <span style={{color:'#ef4444'}}>*</span></label>
-                     <input id="projectChargeCode" name="projectChargeCode" type="text" defaultValue="69341378" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="clientCountry" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Client Country <span style={{color:'#ef4444'}}>*</span></label>
-                     <select id="clientCountry" name="clientCountry" defaultValue="Australia" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>Australia</option>
-                       <option>India</option>
-                     </select>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="methodology" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Methodology Used</label>
-                     <input id="methodology" name="methodology" type="text" defaultValue="Generic Agile Method" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="secondaryLocation" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Secondary Location</label>
-                     <select id="secondaryLocation" name="secondaryLocation" defaultValue="India (IN)" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>India (IN)</option>
-                       <option>Philippines (PH)</option>
-                     </select>
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="accountName" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Account Name</label>
-                     <input id="accountName" name="accountName" type="text" defaultValue="CO*****ED" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}} />
-                   </div>
-
-                   <div style={{display:'flex',flexDirection:'column',gap:6}} className="field">
-                     <label htmlFor="lifeCycle" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Life Cycle <span style={{color:'#ef4444'}}>*</span></label>
-                     <select id="lifeCycle" name="lifeCycle" defaultValue="Limited Scope Projects" style={{padding:12,borderRadius:12,border:'1px solid #e7e9ee',background:'#f3f4f6'}}>
-                       <option>Limited Scope Projects</option>
-                       <option>Custom Implementation</option>
-                     </select>
-                   </div>
-
-                   {/* Work description spans both columns */}
-                   <div style={{gridColumn:'1 / -1',marginTop:12}}>
-                     <label htmlFor="workDescription" style={{fontSize:12,fontWeight:600,color:'#374151'}}>Work Description</label>
-                     <textarea id="workDescription" name="workDescription" placeholder="Add a short description of the project scope, deliverables, and constraints..." style={{width:'100%',padding:12,borderRadius:12,border:'1px solid #e7e9ee',minHeight:120,boxSizing:'border-box',background:'#f3f4f6'}} defaultValue={""} />
-                   </div>
-
-                 </div>
+                   )
+                 })()}
                </div>
              )}
 
