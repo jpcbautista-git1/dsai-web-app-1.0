@@ -716,15 +716,16 @@ export default function Dsai(){
     return suggestions.slice(0, 2).join(' — ')
   }
 
-  // DEX dashboard derived metrics (computed here so JSX is simple)
-  const dexTotalProjects = projectSummaries.length
-  const dexAtRisk = projectSummaries.filter(p => Array.isArray(p.key_risks) && p.key_risks.length > 0).length
-  const dexSynced = projectSummaries.filter(p => p.last_tx).length
-  const dexAvgHours = Math.round((projectSummaries.reduce((s,p) => s + (p.total_hours || 0), 0) / Math.max(1, dexTotalProjects)) * 100) / 100
+  // DEX dashboard derived metrics (filtered to onboarded projects only)
+  const dexOnboardedProjects = projectSummaries.filter(p => dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name))
+  const dexTotalProjects = dexOnboardedProjects.length
+  const dexAtRisk = dexOnboardedProjects.filter(p => Array.isArray(p.key_risks) && p.key_risks.length > 0).length
+  const dexSynced = dexOnboardedProjects.filter(p => p.last_tx).length
+  const dexAvgHours = Math.round((dexOnboardedProjects.reduce((s,p) => s + (p.total_hours || 0), 0) / Math.max(1, dexTotalProjects)) * 100) / 100
 
-  const dexTopProjects = projectSummaries.slice().sort((a,b) => (b.total_hours || 0) - (a.total_hours || 0)).slice(0,5)
+  const dexTopProjects = dexOnboardedProjects.slice().sort((a,b) => (b.total_hours || 0) - (a.total_hours || 0)).slice(0,5)
 
-  const dexRiskCategories = projectSummaries.reduce((acc, p) => {
+  const dexRiskCategories = dexOnboardedProjects.reduce((acc, p) => {
     (p.key_risks || []).forEach(rk => {
       const t = String(rk || '').toLowerCase()
       let cat = 'Other'
@@ -931,10 +932,10 @@ export default function Dsai(){
                       </tr>
                     </thead>
                     <tbody>
-                      {projectSummaries.length === 0 && (
-                        <tr><td colSpan={6} style={{padding:'24px 10px',color:'#6a7280'}}>No project data available.</td></tr>
+                      {dexOnboardedProjects.length === 0 && (
+                        <tr><td colSpan={6} style={{padding:'24px 10px',color:'#6a7280'}}>No projects onboarded to DSAI yet.</td></tr>
                       )}
-                      {projectSummaries.map((p) => (
+                      {dexOnboardedProjects.map((p) => (
                         <tr key={p.project_id}>
                           <td style={{padding:'12px 10px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -973,6 +974,14 @@ export default function Dsai(){
                       </div>
 
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <button onClick={() => { console.log('Export DEX View', dexViewModalProject?.project_id) }} aria-label="Export DEX view report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+                          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <path d="M7 10l5 5 5-5" />
+                            <path d="M12 15V3" />
+                          </svg>
+                          <span style={{display:'inline-block',transform:'translateY(-1px)'}}>Export</span>
+                        </button>
                         <button onClick={saveDexViewModalAssignments} aria-label="Save DEX view actions" style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#059669',border:'1px solid #047857',color:'#fff',fontWeight:700,cursor:'pointer'}}>
                           Save
                         </button>
@@ -1202,7 +1211,7 @@ export default function Dsai(){
                   <div style={{background:'#fff',border:'1px solid #e6e9f2',borderRadius:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <div style={{display:'flex',flexDirection:'column',gap:4}}>
                       <div style={{fontSize:10,color:'#6a7280',fontWeight:700}}>Total Projects</div>
-                      <div style={{fontSize:18,fontWeight:900,color:'#2a2f36'}}>{projectSummaries.length}</div>
+                      <div style={{fontSize:18,fontWeight:900,color:'#2a2f36'}}>{projectSummaries.filter(p => dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)).length}</div>
                     </div>
                     <div style={{width:40,height:40,display:'grid',placeItems:'center',borderRadius:10,background:'#eef4ff',border:'1px solid rgba(0,0,0,.06)'}}>
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="#2563eb"><path d="M4 4h7v7H4V4zm9 0h7v5h-7V4zM4 13h7v7H4v-7zm9 3h7v4h-7v-4z"/></svg>
