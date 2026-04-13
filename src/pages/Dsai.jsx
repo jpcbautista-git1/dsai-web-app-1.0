@@ -1708,8 +1708,8 @@ export default function Dsai(){
                        )}
                       {dsaiPublishedProjects.map((p) => (
                         <tr key={p.project_id}>
-                          <td style={{padding:'14px'}}>
-                            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <td style={{padding:'14px',verticalAlign:'top'}}>
+                            <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
                               <div style={{width:36,height:36,borderRadius:999,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#c7d2fe,#93c5fd)',border:'1px solid rgba(0,0,0,.06)',color:'#1f2937',fontWeight:900}}>{(p.project_name||'').charAt(0).toUpperCase()}</div>
                               <div>
                                 <div style={{fontWeight:900}}>{p.project_name}</div>
@@ -1717,18 +1717,18 @@ export default function Dsai(){
                               </div>
                             </div>
                           </td>
-                          <td style={{padding:'14px',verticalAlign:'middle'}}>{(p.people && p.people.map(x=>x.person).slice(0,2).join(' / ')) || ''}</td>
-                          <td style={{padding:'14px',verticalAlign:'middle',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff7ed',color:'#c2410c',fontWeight:900}}>—</span></td>
-                          <td style={{padding:'14px',verticalAlign:'middle',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff1f1',color:'#b91c1c',fontWeight:900}}>—</span></td>
-                          <td style={{padding:'14px',verticalAlign:'middle',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
-                          <td style={{padding:'14px',verticalAlign:'middle',color:'#2a2a2c'}}>
-                            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-start',gap:100,flexWrap:'wrap'}}>
-                              <ul style={{margin:0,paddingLeft:16}}>
+                          <td style={{padding:'14px',verticalAlign:'top'}}>{(p.people && p.people.map(x=>x.person).slice(0,2).join(' / ')) || ''}</td>
+                          <td style={{padding:'14px',verticalAlign:'top',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff7ed',color:'#c2410c',fontWeight:900}}>—</span></td>
+                          <td style={{padding:'14px',verticalAlign:'top',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#fff1f1',color:'#b91c1c',fontWeight:900}}>—</span></td>
+                          <td style={{padding:'14px',verticalAlign:'top',textAlign:'center'}}><span style={{display:'inline-flex',alignItems:'center',padding:'6px 10px',borderRadius:999,background:'#ecfdf5',color:'#15803d',fontWeight:900}}>Synced</span></td>
+                          <td style={{padding:'14px',verticalAlign:'top',color:'#2a2a2c'}}>
+                            <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',alignItems:'start',gap:14}}>
+                              <ul style={{margin:0,paddingLeft:16,display:'grid',gap:8,minWidth:0}}>
                                 {getPublishedDexViewItems(p).slice(0, 2).map((item) => (
-                                  <li key={item.sourceIndex}>{item.risk}</li>
+                                  <li key={item.sourceIndex} style={{overflowWrap:'anywhere',wordBreak:'break-word',lineHeight:1.5}}>{item.risk}</li>
                                 ))}
                               </ul>
-                              <button onClick={() => openDexModal(p)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer',flex:'0 0 auto',whiteSpace:'nowrap'}}>DEX</button>
+                              <button onClick={() => openDexModal(p)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid #e6e6ef',background:'#fff',fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',alignSelf:'start'}}>DEX</button>
                             </div>
                           </td>
                         </tr>
