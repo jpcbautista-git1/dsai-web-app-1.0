@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
+import GeminiExample from './components/GeminiExample'
 import Home from './pages/Home'
 import Projects from './pages/Projects'
 import ProjectSample from './pages/ProjectSample'
@@ -38,6 +39,7 @@ export default function App() {
               <Route path="/projects/:id" element={<ProjectSample />} />
               <Route path="/projects/:id/dsai-onboarding" element={<ProjectSample />} />
               <Route path="/dsai" element={<Dsai />} />
+              <Route path="/gemini" element={<GeminiExample />} />
               <Route path="/metrics" element={<Metrics />} />
               <Route path="/process-audit" element={<ProcessAudit />} />
               <Route path="/voc" element={<Voc />} />

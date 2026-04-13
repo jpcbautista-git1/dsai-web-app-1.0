@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react'
+import { useGemini } from '../gemini'
 
 export default function Dsai(){
   const DEX_MODAL_SAVE_KEY = 'dsaiDexModalSavedAssignments'
   const DEX_VIEW_MODAL_SAVE_KEY = 'dsaiDexViewModalSavedAssignments'
   const uploadRef = useRef(null)
+  const { complete: runGeminiAnalysis } = useGemini()
   const [parsedData, setParsedData] = useState(null)
   const [projectSummaries, setProjectSummaries] = React.useState([
     {
@@ -12,7 +14,7 @@ export default function Dsai(){
       people: [ { person: 'Chou, Adrich' } ],
       total_hours: 0,
       last_tx: null,
-      key_risks: []
+      key_risks: ['Scope creep from stakeholder requests', 'Delayed design approval from marketing']
     },
     {
       project_id: 'sap-abap',
@@ -20,7 +22,7 @@ export default function Dsai(){
       people: [ { person: 'Santos, Aristotle' } ],
       total_hours: 0,
       last_tx: null,
-      key_risks: []
+      key_risks: ['Resource shortage on ABAP skills', 'Integration testing delays']
     },
     {
       project_id: 'changi-soar',
@@ -28,7 +30,7 @@ export default function Dsai(){
       people: [ { person: 'Lorilla, Miguel' } ],
       total_hours: 0,
       last_tx: null,
-      key_risks: []
+      key_risks: ['External vendor dependency', 'High budget constraints']
     },
     {
       project_id: 'bdo-spm',
@@ -36,7 +38,7 @@ export default function Dsai(){
       people: [],
       total_hours: 0,
       last_tx: null,
-      key_risks: []
+      key_risks: ['Complex data migration', 'Stakeholder alignment']
     },
     {
       project_id: 'japan-css',
@@ -44,7 +46,7 @@ export default function Dsai(){
       people: [],
       total_hours: 0,
       last_tx: null,
-      key_risks: []
+      key_risks: ['Time zone coordination', 'Quality assurance gaps']
     },
     {
       project_id: 'nike-oracle',
@@ -52,7 +54,7 @@ export default function Dsai(){
       people: [],
       total_hours: 0,
       last_tx: null,
-      key_risks: []
+      key_risks: ['System stability issues', 'Staffing turnover risk']
     },
     {
       project_id: 'legacy-closed',
@@ -143,17 +145,97 @@ export default function Dsai(){
   const [dexSaveMessage, setDexSaveMessage] = React.useState('')
   const [dexModalReadOnly, setDexModalReadOnly] = React.useState(false)
   const [dexValidationErrors, setDexValidationErrors] = React.useState({})
-  const openDexModal = (project) => { setDexModalProject(project); setDexModalReadOnly(true); setDexModalOpen(true) }
+  const [dexGeneratingMitigations, setDexGeneratingMitigations] = React.useState(false)
+  const [dexMitigationGenError, setDexMitigationGenError] = React.useState('')
+  const openDexModal = (project) => { setDexModalProject(project); setDexModalReadOnly(false); setDexModalOpen(true) }
   const closeDexModal = () => {
     setDexModalOpen(false)
     setDexModalProject(null)
+    setMitigationAssignments({})
+    setAiMitigations({})
     setDexModalReadOnly(false)
     setDexValidationErrors({})
     setDexSaveMessage('')
   }
 
+  const handleGenerateMitigationsWithGemini = async () => {
+    if (!dexModalProject?.key_risks || dexModalProject.key_risks.length === 0) {
+      setDexMitigationGenError('No risks to generate mitigations for.')
+      setTimeout(() => setDexMitigationGenError(''), 3000)
+      return
+    }
+
+    try {
+      setDexGeneratingMitigations(true)
+      setDexMitigationGenError('')
+
+      const newAssignments = { ...mitigationAssignments }
+      const newAiMitigations = { ...aiMitigations }
+      let successCount = 0
+
+      // Generate mitigation for each risk individually
+      for (let idx = 0; idx < dexModalProject.key_risks.length; idx++) {
+        const risk = dexModalProject.key_risks[idx]
+        
+        const prompt = [
+          'You are a project delivery risk analyst reviewing project risks.',
+          `Project: ${dexModalProject.project_name}`,
+          `PM/DM: ${dexModalProject.people?.[0]?.person || 'Unknown'}`,
+          `Hours: ${dexModalProject.total_hours || 0}h`,
+          '',
+          `Risk identified: ${risk}`,
+          '',
+          'Based on this risk, provide:',
+          '1. Risk level assessment (High/Medium/Low)',
+          '2. Smart and proactive mitigation strategy',
+          '',
+          'Format your response as:',
+          'LEVEL: [High|Medium|Low]',
+          'MITIGATION: [specific, actionable mitigation strategy]'
+        ].join('\n')
+
+        const response = await runGeminiAnalysis(prompt, {
+          temperature: 0.3,
+          maxOutputTokens: 500
+        })
+
+        const responseText = String(response || '').trim()
+        if (responseText) {
+          // Parse the response - capture everything after LEVEL: and MITIGATION:
+          const levelMatch = responseText.match(/LEVEL:\s*(High|Medium|Low)/i)
+          const mitigationMatch = responseText.match(/MITIGATION:\s*(.+)/is)
+          
+          const riskLevel = levelMatch ? levelMatch[1] : 'High'
+          const mitigationText = mitigationMatch ? mitigationMatch[1].trim() : responseText
+
+          // Store AI-generated mitigation and risk level
+          newAiMitigations[idx] = {
+            riskLevel,
+            mitigation: mitigationText
+          }
+          successCount++
+        }
+      }
+
+      if (successCount > 0) {
+        setAiMitigations(newAiMitigations)
+        setDexMitigationGenError(`✓ Generated ${successCount} mitigation(s). Review suggested mitigations and enter your actions below.`)
+        setTimeout(() => setDexMitigationGenError(''), 5000)
+      } else {
+        setDexMitigationGenError('Could not parse Gemini response. Please try again.')
+        setTimeout(() => setDexMitigationGenError(''), 3000)
+      }
+    } catch (error) {
+      setDexMitigationGenError(error?.message || 'Mitigation generation failed. Try again.')
+      setTimeout(() => setDexMitigationGenError(''), 5000)
+    } finally {
+      setDexGeneratingMitigations(false)
+    }
+  }
+
   // mitigation assignment state for modal (owner selection + accept flag)
   const [mitigationAssignments, setMitigationAssignments] = React.useState({})
+  const [aiMitigations, setAiMitigations] = React.useState({}) // Store AI-generated mitigations and risk levels per risk
   const setMitigationOwner = (idx, owner) => setMitigationAssignments(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), owner } }))
 
   // Separate modal/state for DEX tab "View" action
@@ -1363,7 +1445,13 @@ export default function Dsai(){
                         </div>
                       </div>
 
-                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                        <button onClick={handleGenerateMitigationsWithGemini} disabled={dexGeneratingMitigations || dexModalReadOnly} aria-label="Generate mitigations with Gemini" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:dexGeneratingMitigations ? '#dbeafe' : '#10b981',border:dexGeneratingMitigations ? '1px solid #bfdbfe' : '1px solid #059669',color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'wait' : 'pointer',opacity:dexModalReadOnly ? 0.6 : 1}}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
+                            <path d="M12 2v6m0 0l-3-3m3 3l3-3M4 7v10m0 0v2c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-2m0 0V9c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v8" />
+                          </svg>
+                          <span style={{display:'inline-block',transform:'translateY(-1px)'}}>{dexGeneratingMitigations ? 'Generating...' : 'Generate Mitigations'}</span>
+                        </button>
                         <button onClick={() => { console.log('Export DEX', dexModalProject?.project_id); }} aria-label="Export DEX report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:'pointer'}}>
                           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -1379,6 +1467,7 @@ export default function Dsai(){
                           Edit
                         </button>
                         {dexSaveMessage && <div style={{fontSize:12,color:dexSaveMessage === 'Saved' ? '#065f46' : '#b91c1c',fontWeight:700}}>{dexSaveMessage}</div>}
+                        {dexMitigationGenError && <div style={{fontSize:12,color:dexMitigationGenError.includes('✓') ? '#059669' : '#b91c1c',fontWeight:700}}>{dexMitigationGenError}</div>}
                         <button onClick={closeDexModal} style={{padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#111827',border:0,color:'#fff',fontWeight:700,cursor:'pointer'}}>Close</button>
                        </div>
                     </div>
@@ -1419,11 +1508,20 @@ export default function Dsai(){
                               dexModalProject.key_risks.map((rk, idx) => (
                                 <tr key={idx} style={{background: idx % 2 === 0 ? '#fff' : '#fbfdff'}}>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
-                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
+                                  <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}>
+                                    {(() => {
+                                      const level = aiMitigations[idx]?.riskLevel || 'High'
+                                      const bgColor = level === 'High' ? '#fff7ed' : level === 'Low' ? '#ecfdf5' : '#fef3c7'
+                                      const textColor = level === 'High' ? '#b91c1c' : level === 'Low' ? '#166534' : '#b45309'
+                                      return <span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:bgColor,color:textColor,fontWeight:700,fontSize:12}}>{level}</span>
+                                    })()}
+                                  </td>
 
-                                  {/* Suggested mitigation */}
+                                  {/* Suggested mitigation - AI generated */}
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
-                                    <div>{generateMitigationForRisk(rk)}</div>
+                                    <div style={{fontSize:13, lineHeight:1.4}}>
+                                      {aiMitigations[idx]?.mitigation || generateMitigationForRisk(rk)}
+                                    </div>
                                   </td>
 
                                   {/* Actions Taken */}
