@@ -72,6 +72,10 @@ export default function ProjectSample(){
     // validate DSAI header fields
     if(!dsaiData.projectName || !dsaiData.projectName.trim()){ dErrors.projectName = 'Required'; valid = false }
     if(!dsaiData.engagementName || !dsaiData.engagementName.trim()){ dErrors.engagementName = 'Required'; valid = false }
+    // require project dates
+    if(!dsaiData.startDate){ dErrors.startDate = 'Required'; valid = false }
+    if(!dsaiData.endDate){ dErrors.endDate = 'Required'; valid = false }
+    if(dsaiData.startDate && dsaiData.endDate && dsaiData.startDate > dsaiData.endDate){ dErrors.dateOrder = 'Start must be before End'; valid = false }
 
     // validate phases
     phases.forEach(p => {
@@ -675,23 +679,23 @@ export default function ProjectSample(){
                   {/* Row 1: Project Name full width */}
                   <div style={{display:'grid',gridTemplateColumns:'1fr',gap:12}}>
                     <div>
-                      <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Name</div>
-                      <input type="text" value={dsaiData.projectName} readOnly style={{width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#f3f4f6'}} />
+                      <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Name <span style={{color:'#ef4444'}}>*</span></div>
+                      <input type="text" value={dsaiData.projectName} readOnly className={dsaiErrors.projectName ? 'invalid' : ''} aria-invalid={!!dsaiErrors.projectName} style={{width:'100%',padding:12,borderRadius:8,border: dsaiErrors.projectName ? '1px solid #ef4444' : '1px solid #d1d5db',background:'#f3f4f6'}} />
                     </div>
 
                     {/* Row 2: Start and End side-by-side */}
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                       <div>
-                        <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Start Date</div>
+                        <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project Start Date <span style={{color:'#ef4444'}}>*</span></div>
                         <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }}>
-                          <input id="inlineStartDate" type="date" min={todayIso} value={dsaiData.startDate} onChange={(e)=>setDsaiData(s=>({...s,startDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background:'#fff'}} />
+                          <input id="inlineStartDate" type="date" min={todayIso} value={dsaiData.startDate} className={dsaiErrors.startDate ? 'invalid' : ''} aria-invalid={!!dsaiErrors.startDate} onChange={(e)=>setDsaiData(s=>({...s,startDate:e.target.value}))} onClick={()=>{ const el = document.getElementById('inlineStartDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} style={{flex:1,width:'100%',padding:12,borderRadius:8,border: dsaiErrors.startDate ? '1px solid #ef4444' : '1px solid #d1d5db',background:'#fff'}} />
                         </div>
                       </div>
 
                       <div>
-                        <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project End Date</div>
+                        <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:8}}>Project End Date <span style={{color:'#ef4444'}}>*</span></div>
                         <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={()=>{ const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }}>
-                          <input id="inlineEndDate" type="date" min={dsaiData.startDate || todayIso} value={dsaiData.endDate} onChange={(e)=>setDsaiData(s=>({...s,endDate:e.target.value}))} onClick={()=>{ if(!dsaiData.startDate) return; const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} readOnly={!dsaiData.startDate} title={!dsaiData.startDate ? 'Set start date first' : ''} style={{flex:1,width:'100%',padding:12,borderRadius:8,border:'1px solid #d1d5db',background: !dsaiData.startDate ? '#f3f4f6' : '#fff'}} />
+                          <input id="inlineEndDate" type="date" min={dsaiData.startDate || todayIso} value={dsaiData.endDate} className={dsaiErrors.endDate ? 'invalid' : ''} aria-invalid={!!dsaiErrors.endDate} onChange={(e)=>setDsaiData(s=>({...s,endDate:e.target.value}))} onClick={()=>{ if(!dsaiData.startDate) return; const el = document.getElementById('inlineEndDate'); if(el){ if(typeof el.showPicker === 'function'){ el.showPicker(); } else { el.focus(); } } }} readOnly={!dsaiData.startDate} title={!dsaiData.startDate ? 'Set start date first' : ''} style={{flex:1,width:'100%',padding:12,borderRadius:8,border: dsaiErrors.endDate ? '1px solid #ef4444' : '1px solid #d1d5db',background: !dsaiData.startDate ? '#f3f4f6' : '#fff'}} />
                         </div>
                       </div>
                     </div>
@@ -866,8 +870,8 @@ export default function ProjectSample(){
                              <div>
                                {resources.filter(r=>r.phaseId === p.id).length === 0 ? (
                                  <div style={{color:'#9ca3af'}}>No resources for this phase.</div>
-                               ) : (
-                                 resources.filter(r=>r.phaseId === p.id).map(r => (
+                               ) : resources.filter(r=>r.phaseId === p.id).map((r) => {
+                                  return (
                                   <div key={r.id} style={{background:'#fff',padding:12,borderRadius:8,marginBottom:12}}>
                                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
                                       <div>
@@ -920,8 +924,8 @@ export default function ProjectSample(){
                                       </div>
                                     </div>
                                   </div>
-                                ))
-                               )}
+                                  )
+                               })}
                              </div>
                            </div>
 
