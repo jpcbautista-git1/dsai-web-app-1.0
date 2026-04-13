@@ -162,6 +162,7 @@ export default function Dsai(){
   const [dexValidationErrors, setDexValidationErrors] = React.useState({})
   const [dexGeneratingMitigations, setDexGeneratingMitigations] = React.useState(false)
   const [dexMitigationGenError, setDexMitigationGenError] = React.useState('')
+  const [dexIntegrateBaseline, setDexIntegrateBaseline] = React.useState(true)
   const openDexModal = (project) => { setDexModalProject(project); setDexModalReadOnly(false); setDexModalOpen(true) }
   const closeDexModal = () => {
     setDexModalOpen(false)
@@ -193,35 +194,34 @@ export default function Dsai(){
         const risk = dexModalProject.key_risks[idx]
         
         const prompt = [
-          'You are a project delivery risk analyst reviewing project risks.',
+          'You are a Senior Project Delivery Risk Analyst with over 15 years of experience managing complex enterprise implementations across consulting, ERP, and digital transformation programmes.',
+          'You are reviewing a flagged project risk and must produce a precise, senior-level mitigation plan that the Delivery Manager can act on immediately.',
+          '',
           `Project: ${dexModalProject.project_name}`,
-          `PM/DM: ${dexModalProject.people?.[0]?.person || 'Unknown'}`,
-          `Hours: ${dexModalProject.total_hours || 0}h`,
+          `Delivery Lead: ${dexModalProject.people?.[0]?.person || 'Unknown'}`,
+          `Total Hours Charged: ${dexModalProject.total_hours || 0}h`,
           '',
-          `Risk identified: ${risk}`,
+          `Risk Identified: ${risk}`,
           '',
-          'Provide a smart, proactive, and detailed mitigation plan that is practical for delivery teams.',
-          'Keep it specific and implementation-oriented (owners, timeline, triggers, fallback).',
+          'Before writing your mitigation, briefly consider the likely root cause and the business impact if this risk is left unaddressed.',
+          'Then write a professional, actionable mitigation plan that a delivery team can execute this week.',
           '',
-          'Format your response exactly as:',
+          'Format your response exactly as follows — two paragraphs only, no bullet points inside:',
           'LEVEL: [High|Medium|Low]',
           'MITIGATION:',
-          '- Immediate Actions (0-7 days): [2-3 concrete actions]',
-          '- Preventive Actions (8-30 days): [2-3 concrete actions]',
-          '- Early Warning Indicators: [2-3 measurable signals]',
-          '- Escalation & Contingency: [fallback plan if risk materializes]',
-          '- Recommended Owner & Due Date: [role + target date pattern]',
-          '- Success KPI: [one measurable KPI to track mitigation effectiveness]',
+          '[Paragraph 1 — Actions: In one professional paragraph, describe the immediate actions (0–7 days) and the preventive actions (8–30 days). Name the responsible owner for each action (e.g. PM, DM, Resource Manager, Finance Lead), include target timeframes, and state the escalation trigger if actions are not completed on schedule.]',
+          '[Paragraph 2 — Indicators & Governance: In one professional paragraph, describe 2–3 measurable early warning signals to monitor, the fallback or contingency plan if the risk materialises despite mitigation, and one clear, quantifiable success KPI that will confirm the risk is closed and stable.]',
           '',
           'Constraints:',
-          '- Use concise bullet points.',
-          '- No generic advice.',
-          '- Maximum 220 words in mitigation section.'
+          '- Write in professional senior delivery language — no generic textbook advice.',
+          '- Each paragraph must be specific, dense, and immediately actionable.',
+          '- Do not use bullet points, numbered lists, or sub-headers inside the paragraphs.',
+          '- Maximum 300 words total across both paragraphs.'
         ].join('\n')
 
         const response = await runGeminiAnalysis(prompt, {
           temperature: 0.35,
-          maxOutputTokens: 900
+          maxOutputTokens: 1800
         })
 
         const responseText = String(response || '').trim()
@@ -844,6 +844,29 @@ export default function Dsai(){
     return baselineMitigations.generic
   }
 
+  // Build a single, actionable mitigation plan by combining baseline controls with Gemini context.
+  const buildSuggestedMitigation = (risk, aiMitigation) => {
+    const baseline = generateMitigationForRisk(risk)
+    const aiText = String(aiMitigation || '').trim()
+
+    if (!aiText) return baseline
+
+    return [
+      'Integrated Mitigation Plan',
+      '',
+      'Baseline Controls:',
+      baseline,
+      '',
+      'AI Scenario Enhancements:',
+      aiText,
+      '',
+      'Execution Governance:',
+      '- Review cadence: weekly PM/DM checkpoint with risk owner updates.',
+      '- Escalation trigger: if indicator worsens for 2 consecutive checkpoints.',
+      '- Success criterion: close risk only after KPI trend stabilizes for 2 reporting cycles.'
+    ].join('\n')
+  }
+
   // DEX dashboard derived metrics (filtered to onboarded projects only)
   const dexOnboardedProjects = projectSummaries.filter(p => dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name))
   const dexTotalProjects = dexOnboardedProjects.length
@@ -1168,7 +1191,7 @@ export default function Dsai(){
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#111827',wordBreak:'break-word'}}>{rk}</td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',width:'14%'}}><span style={{display:'inline-block',padding:'5px 6px',borderRadius:6,background:'#fff7ed',color:'#b91c1c',fontWeight:700,fontSize:12}}>High</span></td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
-                                    <div>{generateMitigationForRisk(rk)}</div>
+                                    <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>{buildSuggestedMitigation(rk, aiMitigations[idx]?.mitigation)}</div>
                                   </td>
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top'}}>
                                     {(() => {
@@ -1492,12 +1515,6 @@ export default function Dsai(){
                       </div>
 
                       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                        <button onClick={handleGenerateMitigationsWithGemini} disabled={dexGeneratingMitigations || dexModalReadOnly} aria-label="Generate mitigations with Gemini" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:dexGeneratingMitigations ? '#dbeafe' : '#10b981',border:dexGeneratingMitigations ? '1px solid #bfdbfe' : '1px solid #059669',color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'wait' : 'pointer',opacity:dexModalReadOnly ? 0.6 : 1}}>
-                          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
-                            <path d="M12 2v6m0 0l-3-3m3 3l3-3M4 7v10m0 0v2c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-2m0 0V9c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v8" />
-                          </svg>
-                          <span style={{display:'inline-block',transform:'translateY(-1px)'}}>{dexGeneratingMitigations ? 'Generating...' : 'Generate Mitigations'}</span>
-                        </button>
                         <button onClick={() => { console.log('Export DEX', dexModalProject?.project_id); }} aria-label="Export DEX report" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:'#2563eb',border:'1px solid #1e40af',color:'#fff',fontWeight:700,cursor:'pointer'}}>
                           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -1527,6 +1544,19 @@ export default function Dsai(){
 
                       <div style={{marginBottom:12,color:'#475569',fontSize:13}}>
                         Explanation: (AI) Summary — the risks captured from the report are shown below. Use the actions to export or close.
+                      </div>
+
+                      <div style={{marginBottom:12,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                        <button onClick={handleGenerateMitigationsWithGemini} disabled={dexGeneratingMitigations} aria-label="Generate mitigations with Gemini" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',height:34,lineHeight:1,fontSize:13,borderRadius:8,background:dexGeneratingMitigations ? '#374151' : '#111827',border:dexGeneratingMitigations ? '1px solid #4b5563' : '1px solid #000',color:'#fff',fontWeight:700,cursor:dexGeneratingMitigations ? 'wait' : 'pointer'}}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto'}}>
+                            <path d="M12 2v6m0 0l-3-3m3 3l3-3M4 7v10m0 0v2c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-2m0 0V9c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v8" />
+                          </svg>
+                          <span style={{display:'inline-block',transform:'translateY(-1px)'}}>{dexGeneratingMitigations ? 'Generating...' : 'Generate Mitigations (Gemini)'}</span>
+                        </button>
+                        <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'#374151',cursor:'pointer',userSelect:'none'}}>
+                          <input type="checkbox" checked={dexIntegrateBaseline} onChange={e => setDexIntegrateBaseline(e.target.checked)} style={{width:15,height:15,cursor:'pointer',accentColor:'#111827'}} />
+                          Integrate with baseline mitigations
+                        </label>
                       </div>
 
                       <div style={{border:'1px solid #e6e9f2',borderRadius:8,overflow:'hidden',background:'#fff'}}>
@@ -1566,7 +1596,9 @@ export default function Dsai(){
                                   {/* Suggested mitigation - AI generated */}
                                   <td style={{padding:12,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',color:'#334155',wordBreak:'break-word'}}>
                                     <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>
-                                      {aiMitigations[idx]?.mitigation || generateMitigationForRisk(rk)}
+                                      {aiMitigations[idx]?.mitigation
+                                        ? (dexIntegrateBaseline ? buildSuggestedMitigation(rk, aiMitigations[idx].mitigation) : aiMitigations[idx].mitigation)
+                                        : 'No suggested mitigation yet. Click "Generate Mitigations (Gemini)" to create an integrated recommendation.'}
                                     </div>
                                   </td>
 
