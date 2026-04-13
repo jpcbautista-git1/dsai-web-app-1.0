@@ -74,6 +74,33 @@ export default function Dsai(){
   const [activeTab, setActiveTab] = useState('dsai')
   const onUploadClick = () => uploadRef.current?.click()
 
+  // Track which projects are onboarded to DSAI (reads from localStorage, kept in sync)
+  const [dsaiOnboardedIds, setDsaiOnboardedIds] = React.useState(new Set())
+  React.useEffect(() => {
+    const load = () => {
+      try {
+        const raw = localStorage.getItem('dsaiOnboard')
+        if (!raw) { setDsaiOnboardedIds(new Set()); return }
+        const payload = JSON.parse(raw)
+        const s = new Set()
+        const add = (it) => {
+          if (!it) return
+          if (it.id) s.add(String(it.id))
+          if (it.projectId) s.add(String(it.projectId))
+          if (it.projectName) s.add(it.projectName)
+          if (it.engagementName) s.add(it.engagementName)
+          if (it.title) s.add(it.title)
+        }
+        if (Array.isArray(payload)) payload.forEach(add)
+        else add(payload)
+        setDsaiOnboardedIds(s)
+      } catch (e) { /* ignore */ }
+    }
+    load()
+    window.addEventListener('storage', load)
+    return () => window.removeEventListener('storage', load)
+  }, [])
+
   const normalizeDexViewPublishStatus = (value) => {
     if (value === 'Accepted') return 'Published'
     return value || ''
@@ -1274,10 +1301,14 @@ export default function Dsai(){
                       </tr>
                     </thead>
                     <tbody>
-                      {projectSummaries.length === 0 && (
-                        <tr><td colSpan={7} style={{padding:'24px 10px',color:'#6a7280'}}>No uploaded project data yet.</td></tr>
+                      {projectSummaries.filter(p =>
+                        dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)
+                      ).length === 0 && (
+                        <tr><td colSpan={7} style={{padding:'24px 10px',color:'#6a7280'}}>No projects onboarded to DSAI yet.</td></tr>
                       )}
-                      {projectSummaries.map((p) => (
+                      {projectSummaries.filter(p =>
+                        dsaiOnboardedIds.has(p.project_id) || dsaiOnboardedIds.has(p.project_name)
+                      ).map((p) => (
                         <tr key={p.project_id}>
                           <td style={{padding:'12px 10px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:10}}>
