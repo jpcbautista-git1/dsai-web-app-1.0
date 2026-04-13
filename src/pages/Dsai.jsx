@@ -886,7 +886,8 @@ export default function Dsai(){
                 </div>
               )}
 
-               <div style={{height:220,marginTop:12,background:'linear-gradient(180deg, rgba(11,18,40,.06), rgba(11,18,40,.00))'}} aria-hidden="true" />
+              
+
             </>
           )}
 
