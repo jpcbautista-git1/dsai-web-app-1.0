@@ -7,7 +7,6 @@ export default function Dsai(){
   const DEX_VIEW_MODAL_SAVE_KEY = 'dsaiDexViewModalSavedAssignments'
   const uploadRef = useRef(null)
   const { complete: runGeminiAnalysis } = useGemini()
-  const [parsedData, setParsedData] = useState(null)
   const [projectSummaries, setProjectSummaries] = React.useState([
     {
       project_id: 'website-redesign',
@@ -104,7 +103,6 @@ export default function Dsai(){
     try { return !!localStorage.getItem('dsaiSavedReport') } catch { return false }
   })
   const [saveMessage, setSaveMessage] = useState('')
-  const [reportAnalysis, setReportAnalysis] = useState(null)
 
   // Track which projects are onboarded to DSAI (reads from localStorage, kept in sync)
   const [dsaiOnboardedIds, setDsaiOnboardedIds] = React.useState(new Set())
@@ -694,43 +692,6 @@ export default function Dsai(){
     }
   }
 
-  // compute summaries from parsed rows
-  const computeProjectSummaries = (rows = []) => {
-    const projects = {}
-    for (const r of rows) {
-      const pid = (r.project_id || r.project_name || 'unknown').toString()
-      const pname = r.project_name || pid
-      const hours = Number(r.hours || r.time || 0) || 0
-      const dateStr = r.date || r.transaction_date || r['Transaction Date'] || null
-      const date = dateStr ? (isNaN(Date.parse(dateStr)) ? null : new Date(dateStr)) : null
-
-      if (!projects[pid]) projects[pid] = { project_id: pid, project_name: pname, total_hours: 0, last_tx: null, people: {} }
-      projects[pid].total_hours += hours
-      if (date && (!projects[pid].last_tx || date > projects[pid].last_tx)) projects[pid].last_tx = date
-
-      const person = r.person_name || r.Name || 'unknown'
-      if (!projects[pid].people[person]) projects[pid].people[person] = { hours: 0 }
-      projects[pid].people[person].hours += hours
-    }
-
-    return Object.values(projects).map(p => ({
-      ...p,
-      last_tx: p.last_tx ? p.last_tx.toISOString().slice(0,10) : null,
-      people: Object.entries(p.people).map(([person, info]) => ({ person, ...info }))
-    }))
-  }
-
-  // update summaries when parsedData changes
-  React.useEffect(() => {
-    // If no parsedData yet, preserve the existing projectSummaries (seed/sample data)
-    if (parsedData == null) return
-
-    // If parsedData exists but isn't an array, do not change summaries
-    if (!Array.isArray(parsedData)) return
-
-    setProjectSummaries(computeProjectSummaries(parsedData))
-  }, [parsedData])
-
   const parseCSV = (txt = '') => {
     const lines = txt.split(/\r?\n/).filter(l => l.trim())
     if (!lines.length) return []
@@ -859,165 +820,6 @@ export default function Dsai(){
       if (norm.includes(k)) return v
     }
     return raw
-
-    // ── Report analysis helpers ──────────────────────────────────────────────
-    const PLAN_HOURS_PER_DAY = (loc) => (loc === 'India' ? 9 : 8)
-
-    const planBizDays = (startStr, endStr) => {
-      try {
-        const parse = s => {
-          if (!s) return null
-          if (/^[0-3]\d\/[0-1]\d\/[0-9]{4}$/.test(s)) { const [d, m, y] = s.split('/'); return new Date(`${y}-${m}-${d}`) }
-          return new Date(s)
-        }
-        const a = parse(startStr), b = parse(endStr)
-        if (!a || !b || isNaN(a) || isNaN(b) || a > b) return 0
-        let count = 0; const cur = new Date(a)
-        while (cur <= b) { const day = cur.getDay(); if (day !== 0 && day !== 6) count++; cur.setDate(cur.getDate() + 1) }
-        return count
-      } catch { return 0 }
-    }
-
-    const parseReportDate = (str) => {
-      if (!str) return null
-      const d = new Date(str)
-      return isNaN(d) ? null : d
-    }
-
-    const computeReportAnalysis = (tableData) => {
-      try {
-        const col = (label) => tableData.columns.find(c => c.label === label)
-        const engCol = col('Project Name')
-        const hoursCol = col('Hours')
-        const dateCol = col('Date')
-        const personCol = col('Person')
-
-        if (!engCol) return null
-
-        const byEng = {}
-        for (const row of tableData.rows) {
-          const eng = engCol ? (row[engCol.key] || '').trim() : ''
-          if (!eng) continue
-          if (!byEng[eng]) byEng[eng] = { name: eng, totalHours: 0, rowCount: 0, dates: [], people: {} }
-          const hrs = hoursCol ? (parseFloat(row[hoursCol.key]) || 0) : 0
-          const dateStr = dateCol ? row[dateCol.key] : ''
-          const person = personCol ? (row[personCol.key] || '').trim() : ''
-          byEng[eng].totalHours += hrs
-          byEng[eng].rowCount++
-          if (dateStr) byEng[eng].dates.push(dateStr)
-          if (person) byEng[eng].people[person] = (byEng[eng].people[person] || 0) + hrs
-        }
-
-        let plans = {}
-        try {
-          const raw = localStorage.getItem('dsaiOnboardByProject')
-          if (raw) { const m = JSON.parse(raw); if (m && typeof m === 'object') plans = m }
-        } catch { /* ignore */ }
-
-        const fuzzyMatch = (a, b) => {
-          const al = (a || '').toLowerCase().trim(), bl = (b || '').toLowerCase().trim()
-          if (!al || !bl) return false
-          return al === bl || al.includes(bl) || bl.includes(al)
-        }
-
-        return Object.values(byEng).map(eng => {
-          const planEntry = Object.entries(plans).find(([id, plan]) =>
-            fuzzyMatch(eng.name, plan.engagementName) ||
-            fuzzyMatch(eng.name, plan.projectName) ||
-            fuzzyMatch(eng.name, plan.title) ||
-            fuzzyMatch(eng.name, id)
-          )
-          const plan = planEntry ? planEntry[1] : null
-
-          let plannedHours = 0
-          const planPeople = {}
-          if (plan && Array.isArray(plan.resources)) {
-            plan.resources.forEach(r => {
-              const rName = (r.name || '').trim()
-              const days = planBizDays(r.start || r.startDate || '', r.end || r.endDate || '')
-              const hpd = PLAN_HOURS_PER_DAY(r.location || 'Philippines')
-              const rHours = days * hpd
-              plannedHours += rHours
-              if (rName) planPeople[rName] = { hours: rHours, level: r.level, location: r.location }
-            })
-          }
-
-          let latestDate = null
-          eng.dates.forEach(ds => {
-            const d = parseReportDate(ds)
-            if (d && (!latestDate || d > latestDate)) latestDate = d
-          })
-
-          const risks = []
-          if (!plan) {
-            risks.push({ level: 'Medium', text: 'No matching project plan found. Cannot validate charged hours against baseline.' })
-          } else {
-            const planEnd = plan.endDate || plan.end || ''
-            const planStart = plan.startDate || plan.start || ''
-
-            if (plannedHours > 0 && eng.totalHours > plannedHours) {
-              const pct = Math.round(((eng.totalHours - plannedHours) / plannedHours) * 100)
-              risks.push({ level: 'High', text: `Charged hours (${eng.totalHours.toFixed(1)}h) exceed planned (${plannedHours.toFixed(1)}h) by ${pct}%. Risk of going above budget.` })
-            } else if (plannedHours > 0 && eng.totalHours >= plannedHours * 0.85) {
-              risks.push({ level: 'Medium', text: `Charged hours (${eng.totalHours.toFixed(1)}h) are at ${Math.round((eng.totalHours / plannedHours) * 100)}% of planned (${plannedHours.toFixed(1)}h). Approaching budget limit.` })
-            }
-
-            if (latestDate && planEnd) {
-              const pe = new Date(planEnd)
-              if (!isNaN(pe) && latestDate > pe) {
-                risks.push({ level: 'High', text: `Latest charge (${latestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}) is after planned end (${planEnd}). Risk of project overrun.` })
-              }
-            }
-
-            if (eng.dates.length === 0 && planStart) {
-              const ps = new Date(planStart)
-              if (!isNaN(ps) && ps < new Date()) {
-                risks.push({ level: 'Medium', text: `No charges found but planned start (${planStart}) has passed. Risk of project start delay.` })
-              }
-            }
-
-            const unplanned = Object.keys(eng.people).filter(p =>
-              !Object.keys(planPeople).some(pr => fuzzyMatch(p, pr))
-            )
-            if (unplanned.length > 0) {
-              risks.push({ level: 'Medium', text: `${unplanned.length} unplanned resource(s) charging: ${unplanned.slice(0, 3).join(', ')}${unplanned.length > 3 ? ` (+${unplanned.length - 3} more)` : ''}.` })
-            }
-
-            Object.entries(eng.people).forEach(([person, chargedHrs]) => {
-              const match = Object.entries(planPeople).find(([pr]) => fuzzyMatch(person, pr))
-              if (match && match[1].hours > 0 && chargedHrs > match[1].hours * 1.1) {
-                const pct = Math.round((chargedHrs / match[1].hours) * 100)
-                risks.push({ level: 'High', text: `${person}: charged ${chargedHrs.toFixed(1)}h vs planned ${match[1].hours.toFixed(1)}h (${pct}%). Resource overburden risk.` })
-              }
-            })
-
-            if (risks.length === 0) {
-              risks.push({ level: 'OK', text: 'No risks identified. Hours and dates are within plan.' })
-            }
-          }
-
-          return {
-            name: eng.name,
-            totalHours: eng.totalHours,
-            rowCount: eng.rowCount,
-            plannedHours,
-            latestDate,
-            people: eng.people,
-            plan: plan ? { engagementName: plan.engagementName, projectName: plan.projectName, startDate: plan.startDate || plan.start, endDate: plan.endDate || plan.end } : null,
-            risks
-          }
-        })
-      } catch (err) {
-        console.error('Report analysis error', err)
-        return null
-      }
-    }
-
-    React.useEffect(() => {
-      if (!uploadTableData) { setReportAnalysis(null); return }
-      setReportAnalysis(computeReportAnalysis(uploadTableData))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [uploadTableData])
   }
 
   const handleFileUpload = async (e) => {
@@ -1101,20 +903,9 @@ export default function Dsai(){
       setUploadSuccess(true)
       setLastSync(formatDateTime(new Date()))
 
-      // Update dashboard with inferred project from filename
-      try {
-        const inferred = inferProjectFromFilename(f.name)
-        if (inferred) {
-          const optimistic = [{ project_name: inferred }]
-          setParsedData(optimistic)
-          setProjectSummaries(computeProjectSummaries(optimistic))
-        }
-      } catch (e) { /* ignore */ }
-
       setTimeout(() => setLoading(false), 800)
     } catch (err) {
       console.error('Upload error', err)
-      setParsedData(null)
       setUploadTableData(null)
       setLoadingMessage('Upload failed: ' + err.message)
       setLoadingProgress(null)
@@ -2177,98 +1968,6 @@ export default function Dsai(){
                 </div>
               )}
 
-              {/* ── Risk Analysis ── */}
-              {reportAnalysis && reportAnalysis.length > 0 && (
-                <div style={{marginTop:24}}>
-                  <div style={{fontSize:14,fontWeight:800,color:'#0f172a',marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
-                    Risk Analysis
-                    <span style={{fontSize:11,fontWeight:600,color:'#6b7280',background:'#f1f5f9',padding:'2px 8px',borderRadius:99}}>
-                      {reportAnalysis.length} engagement{reportAnalysis.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-
-                  {reportAnalysis.map((eng, ei) => {
-                    const highCount = eng.risks.filter(r => r.level === 'High').length
-                    const medCount = eng.risks.filter(r => r.level === 'Medium').length
-                    const isOk = eng.risks.every(r => r.level === 'OK')
-                    const borderColor = highCount > 0 ? '#ef4444' : medCount > 0 ? '#f59e0b' : '#16a34a'
-                    const bgColor = highCount > 0 ? '#fff5f5' : medCount > 0 ? '#fffbeb' : '#f0fdf4'
-                    return (
-                      <div key={ei} style={{marginBottom:12,borderRadius:10,border:`1.5px solid ${borderColor}`,background:bgColor,overflow:'hidden'}}>
-                        {/* Header row */}
-                        <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:16,padding:'10px 14px',borderBottom:`1px solid ${borderColor}22`,background:`${borderColor}10`}}>
-                          <div style={{fontSize:13,fontWeight:800,color:'#0f172a',flex:1,minWidth:160}}>{eng.name}</div>
-                          <div style={{display:'flex',gap:12,flexWrap:'wrap',fontSize:12}}>
-                            <span style={{color:'#374151'}}>
-                              <span style={{fontWeight:700,color:'#0f172a'}}>{eng.totalHours.toFixed(1)}h</span> charged
-                            </span>
-                            {eng.plannedHours > 0 && (
-                              <span style={{color:'#374151'}}>
-                                <span style={{fontWeight:700,color:'#0f172a'}}>{eng.plannedHours.toFixed(1)}h</span> planned
-                              </span>
-                            )}
-                            {eng.latestDate && (
-                              <span style={{color:'#374151'}}>
-                                Latest PD: <span style={{fontWeight:700,color:'#0f172a'}}>{eng.latestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                              </span>
-                            )}
-                            {eng.plan && eng.plan.endDate && (
-                              <span style={{color:'#374151'}}>
-                                Plan end: <span style={{fontWeight:700,color:'#0f172a'}}>{eng.plan.endDate}</span>
-                              </span>
-                            )}
-                            {!eng.plan && (
-                              <span style={{fontSize:11,color:'#f59e0b',fontWeight:600,background:'#fffbeb',padding:'2px 6px',borderRadius:4,border:'1px solid #fde68a'}}>No plan linked</span>
-                            )}
-                          </div>
-                          <div style={{display:'flex',gap:4}}>
-                            {highCount > 0 && <span style={{fontSize:11,fontWeight:700,color:'#dc2626',background:'#fee2e2',padding:'2px 8px',borderRadius:99}}>{highCount} High</span>}
-                            {medCount > 0 && <span style={{fontSize:11,fontWeight:700,color:'#b45309',background:'#fef3c7',padding:'2px 8px',borderRadius:99}}>{medCount} Medium</span>}
-                            {isOk && <span style={{fontSize:11,fontWeight:700,color:'#15803d',background:'#dcfce7',padding:'2px 8px',borderRadius:99}}>✓ OK</span>}
-                          </div>
-                        </div>
-
-                        {/* People summary + risks */}
-                        <div style={{display:'flex',gap:0,flexWrap:'wrap'}}>
-                          {/* People charging */}
-                          {Object.keys(eng.people).length > 0 && (
-                            <div style={{padding:'10px 14px',borderRight:`1px solid ${borderColor}22`,minWidth:200,flex:'0 0 auto'}}>
-                              <div style={{fontSize:11,fontWeight:700,color:'#6b7280',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.04em'}}>Resources Charging</div>
-                              {Object.entries(eng.people).map(([person, hrs], pi) => (
-                                <div key={pi} style={{display:'flex',justifyContent:'space-between',gap:16,fontSize:12,color:'#374151',padding:'2px 0'}}>
-                                  <span>{person}</span>
-                                  <span style={{fontWeight:700,color:'#0f172a'}}>{hrs.toFixed(1)}h</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Risks */}
-                          <div style={{padding:'10px 14px',flex:1}}>
-                            <div style={{fontSize:11,fontWeight:700,color:'#6b7280',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.04em'}}>Identified Risks</div>
-                            {eng.risks.map((risk, ri) => {
-                              const rColors = {
-                                High: { dot: '#ef4444', text: '#7f1d1d', bg: '#fee2e2' },
-                                Medium: { dot: '#f59e0b', text: '#78350f', bg: '#fef3c7' },
-                                OK: { dot: '#16a34a', text: '#14532d', bg: '#dcfce7' }
-                              }
-                              const c = rColors[risk.level] || rColors.Medium
-                              return (
-                                <div key={ri} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'4px 0',fontSize:12}}>
-                                  <span style={{width:7,height:7,borderRadius:'50%',background:c.dot,marginTop:4,flexShrink:0}} />
-                                  <div style={{background:c.bg,color:c.text,padding:'3px 8px',borderRadius:6,lineHeight:1.5,flex:1}}>
-                                    <strong>{risk.level}:</strong> {risk.text}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
           )}
         </div>
