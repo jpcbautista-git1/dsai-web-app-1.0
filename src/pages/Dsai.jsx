@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { useGemini } from '../gemini'
 
 export default function Dsai(){
@@ -90,16 +91,32 @@ export default function Dsai(){
   const [lastSync, setLastSync] = useState(defaultLastSync)
   const [activeTab, setActiveTab] = useState('dsai')
   const onUploadClick = () => uploadRef.current?.click()
+  const [uploadTableData, setUploadTableData] = useState(() => {
+    try {
+      const raw = localStorage.getItem('dsaiSavedReport')
+      if (!raw) return null
+      const saved = JSON.parse(raw)
+      if (saved && saved.columns && saved.rows) return saved
+      return null
+    } catch { return null }
+  })
+  const [savedReport, setSavedReport] = useState(() => {
+    try { return !!localStorage.getItem('dsaiSavedReport') } catch { return false }
+  })
+  const [saveMessage, setSaveMessage] = useState('')
 
   // Track which projects are onboarded to DSAI (reads from localStorage, kept in sync)
   const [dsaiOnboardedIds, setDsaiOnboardedIds] = React.useState(new Set())
   React.useEffect(() => {
     const load = () => {
       try {
-        const raw = localStorage.getItem('dsaiOnboard')
-        if (!raw) { setDsaiOnboardedIds(new Set()); return }
-        const payload = JSON.parse(raw)
         const s = new Set()
+        const isOnboardedPayload = (payload) => !!(
+          payload &&
+          payload.onboarded === true &&
+          Array.isArray(payload.phases) && payload.phases.length > 0 &&
+          Array.isArray(payload.resources) && payload.resources.length > 0
+        )
         const add = (it) => {
           if (!it) return
           if (it.id) s.add(String(it.id))
@@ -108,8 +125,26 @@ export default function Dsai(){
           if (it.engagementName) s.add(it.engagementName)
           if (it.title) s.add(it.title)
         }
-        if (Array.isArray(payload)) payload.forEach(add)
-        else add(payload)
+
+        const byProjectRaw = localStorage.getItem('dsaiOnboardByProject')
+        if (byProjectRaw) {
+          const byProjectPayload = JSON.parse(byProjectRaw)
+          if (byProjectPayload && typeof byProjectPayload === 'object') {
+            Object.entries(byProjectPayload).forEach(([projectId, value]) => {
+              if (!isOnboardedPayload(value)) return
+              s.add(String(projectId))
+              add(value)
+            })
+          }
+        }
+
+        const legacyRaw = localStorage.getItem('dsaiOnboard')
+        if (legacyRaw) {
+          const legacyPayload = JSON.parse(legacyRaw)
+          if (Array.isArray(legacyPayload)) legacyPayload.forEach(add)
+          else add(legacyPayload)
+        }
+
         setDsaiOnboardedIds(s)
       } catch (e) { /* ignore */ }
     }
@@ -767,6 +802,64 @@ export default function Dsai(){
     throw new Error('processed file not available')
   }
 
+  const handleSaveReport = () => {
+    if (!uploadTableData) return
+    try {
+      localStorage.setItem('dsaiSavedReport', JSON.stringify({
+        fileName: uploadTableData.fileName,
+        savedAt: new Date().toISOString(),
+        sheetName: uploadTableData.sheetName,
+        columns: uploadTableData.columns,
+        rows: uploadTableData.rows
+      }))
+      setSavedReport(true)
+      setSaveMessage('Saved!')
+      setTimeout(() => setSaveMessage(''), 2500)
+    } catch (err) {
+      // If quota exceeded, try saving without rows
+      try {
+        localStorage.setItem('dsaiSavedReport', JSON.stringify({
+          fileName: uploadTableData.fileName,
+          savedAt: new Date().toISOString(),
+          sheetName: uploadTableData.sheetName,
+          columns: uploadTableData.columns,
+          rows: uploadTableData.rows.slice(0, 300)
+        }))
+        setSavedReport(true)
+        setSaveMessage('Saved (trimmed to 300 rows — storage limit)')
+        setTimeout(() => setSaveMessage(''), 3500)
+      } catch (err2) {
+        setSaveMessage('Save failed: storage quota exceeded')
+        setTimeout(() => setSaveMessage(''), 3500)
+      }
+    }
+  }
+
+  // Column name normalizer (mirrors Python worker logic)
+  const normalizeColName = (s) => (typeof s === 'string' ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '')
+
+  const COLUMN_CANDIDATES = {
+    projectid: 'Project ID', gpn: 'Project ID',
+    project: 'Project Name', projectname: 'Project Name',
+    engagement: 'Project Name', engagementname: 'Project Name', engagements: 'Project Name',
+    person: 'Person', personname: 'Person', resource: 'Person', name: 'Person',
+    date: 'Date', day: 'Date', transactiondate: 'Date',
+    hours: 'Hours', time: 'Hours',
+    cost: 'Cost', amount: 'Cost',
+    phase: 'Phase', budget: 'Budget',
+    plannedstart: 'Planned Start', plannedend: 'Planned End',
+    actualstart: 'Actual Start', actualend: 'Actual End'
+  }
+
+  const mapColumnLabel = (raw) => {
+    const norm = normalizeColName(raw)
+    if (COLUMN_CANDIDATES[norm]) return COLUMN_CANDIDATES[norm]
+    for (const [k, v] of Object.entries(COLUMN_CANDIDATES)) {
+      if (norm.includes(k)) return v
+    }
+    return raw
+  }
+
   const handleFileUpload = async (e) => {
     const f = e.target.files?.[0]
     if (!f) return
@@ -774,7 +867,6 @@ export default function Dsai(){
     // Only accept .xlsb files for this upload feature
     const _ext = (f.name.split('.').pop() || '').toLowerCase()
     if (_ext !== 'xlsb') {
-      // brief user-visible message and early return
       setLoading(true)
       setLoadingMessage('Only .xlsb files are accepted for upload')
       setTimeout(() => { setLoading(false); setLoadingMessage('') }, 1800)
@@ -782,162 +874,89 @@ export default function Dsai(){
     }
 
     setLoading(true)
-    setLoadingMessage('Uploading report...')
+    setLoadingMessage('Reading file...')
     setLoadingProgress(null)
 
     try {
-      const fd = new FormData()
-      fd.append('file', f)
-      const uplResp = await fetch('http://localhost:3001/api/upload', { method: 'POST', body: fd })
-      const respText = await uplResp.clone().text()
-      let parsedResp = {}
-      try { parsedResp = JSON.parse(respText) } catch (err) { parsedResp = { ok: uplResp.ok, raw: respText } }
-      setLastUpload({ ok: parsedResp.ok, jobId: parsedResp.jobId || parsedResp.savedCopy || '', savedOriginal: parsedResp.savedOriginal, raw: respText })
+      // Read raw array buffer and parse with SheetJS
+      const arrayBuffer = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(reader.error)
+        reader.readAsArrayBuffer(f)
+      })
 
-      // show immediate upload success per requirement
+      setLoadingMessage('Parsing report...')
+      setLoadingProgress(50)
+
+      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true })
+      // Use first sheet
+      const sheetName = workbook.SheetNames[0]
+      const sheet = workbook.Sheets[sheetName]
+      // header:1 returns array-of-arrays; first row = headers
+      const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+
+      if (!aoa || aoa.length === 0) throw new Error('Empty sheet')
+
+      const rawHeaders = aoa[0].map(h => String(h ?? '').trim())
+      // Filter out completely empty columns
+      const validColIdxs = rawHeaders.map((h, i) => h ? i : null).filter(i => i !== null)
+      const columns = validColIdxs.map(i => ({ key: String(i), raw: rawHeaders[i], label: mapColumnLabel(rawHeaders[i]) }))
+
+      const rows = aoa.slice(1).filter(row => validColIdxs.some(i => {
+        const v = row[i]; return v !== null && v !== undefined && String(v).trim() !== ''
+      })).map(row => {
+        const out = {}
+        validColIdxs.forEach(i => {
+          const val = row[i]
+          out[String(i)] = (val instanceof Date)
+            ? val.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : (val === null || val === undefined ? '' : String(val))
+        })
+        return out
+      })
+
+      const tableData = { fileName: f.name, sheetName, columns, rows }
+      setUploadTableData(tableData)
+      setSavedReport(false)
+      setSaveMessage('')
+
+      // Persist parsed data (not the raw binary) to localStorage
+      try {
+        localStorage.setItem('dsaiUploadedReport', JSON.stringify({
+          fileName: f.name,
+          uploadedAt: new Date().toISOString(),
+          sheetName,
+          columns,
+          rows: rows.slice(0, 500) // cap at 500 rows for storage budget
+        }))
+      } catch (storageErr) {
+        // quota exceeded — store without rows
+        localStorage.setItem('dsaiUploadedReport', JSON.stringify({ fileName: f.name, uploadedAt: new Date().toISOString(), sheetName, columns }))
+      }
+
+      setLastUpload({ ok: true, jobId: f.name, savedOriginal: f.name, raw: '' })
       setLoadingMessage('Upload successful')
       setLoadingProgress(100)
       setUploadSuccess(true)
+      setLastSync(formatDateTime(new Date()))
 
-      // optimistic mapping: for XLSB, infer project from filename and show in dashboard immediately
-      const ext = (f.name.split('.').pop() || '').toLowerCase()
-      if (ext === 'xlsb') {
-        try {
-          const inferred = inferProjectFromFilename(parsedResp.savedOriginal || parsedResp.jobId || f.name)
-          if (inferred) {
-            const optimistic = [{ project_name: inferred }]
-            setParsedData(optimistic)
-            setProjectSummaries(computeProjectSummaries(optimistic))
-          }
-        } catch (e) { /* ignore optimistic failure */ }
-      }
-
-      // background processing: try immediate fetch of outputs, otherwise poll
-      ;(async () => {
-        try {
-          let text = null
-          const jobId = parsedResp.jobId || parsedResp.savedCopy || ''
-          const base = (jobId || '').replace(/\.uploaded$/i, '')
-          const candidates = [`${base}.ndjson`, `${jobId}.ndjson`, `${base}.json`, `${jobId}.json`]
-
-          // immediate attempt
-          for (const name of candidates) {
-            try {
-              const r = await fetch(`http://localhost:3001/data/${encodeURIComponent(name)}`)
-              if (r.ok) { text = await r.text(); break }
-            } catch (e) { /* ignore */ }
-          }
-
-          // if not found, poll
-          if (!text && ext === 'xlsb') {
-            try {
-              // don't attempt polling if the server did not return a jobId
-              if (jobId) {
-                text = await pollForProcessed(jobId, 15, 2000, (attempt, attempts) => {
-                  const pct = Math.round((attempt / attempts) * 100)
-                  if (!uploadSuccess) {
-                    setLoadingProgress(pct <= 80 ? pct : 80)
-                    setLoadingMessage(`Processing report... (${attempt}/${attempts})`)
-                  }
-                })
-              } else {
-                console.warn('No jobId returned from upload; skipping poll')
-              }
-            } catch (err) {
-              console.warn('Processed file not available yet', err)
-            }
-          }
-
-          // for non-xlsb types, try to fetch the saved jobId directly
-          if (!text && ext !== 'xlsb' && jobId) {
-            try {
-              const r = await fetch(`http://localhost:3001/data/${encodeURIComponent(jobId)}`)
-              if (r.ok) text = await r.text()
-            } catch (e) { /* ignore */ }
-          }
-
-          if (!text) {
-            // nothing to parse yet
-            if (!uploadSuccess) {
-              setLoadingMessage('Processing done')
-              setLoadingProgress(null)
-              setTimeout(() => setLoading(false), 1200)
-            }
-            return
-          }
-
-          // parse based on extension of returned content or original file
-          let data = null
-          // if the returned text looks like NDJSON (lines of JSON), prefer that
-          const lines = text.split(/\r?\n/).filter(Boolean)
-          const isNdjson = lines.length > 0 && lines.every(l => {
-            try { JSON.parse(l); return true } catch (e) { return false }
-          })
-
-          if (isNdjson) {
-            data = lines.map(l => JSON.parse(l))
-          } else {
-            // attempt JSON parse, then CSV
-            let maybeObj = null
-            try {
-              maybeObj = JSON.parse(text)
-            } catch (e) {
-              maybeObj = null
-            }
-
-            if (maybeObj) {
-              // worker may emit a summary JSON like { projects: [...] }
-              if (Array.isArray(maybeObj.projects)) {
-                const mapped = (maybeObj.projects || []).map(p => ({
-                  project_id: p.project_id || p.gpn || p.id || p.project_id || (p.project_name || p.project || p.name) || 'unknown',
-                  project_name: p.project_name || p.project || p.gpn || p.name || p.projectName || 'unknown',
-                  hours: p.total_hours || p.totalHours || p.hours || 0,
-                  last_tx: p.last_tx || p.lastTx || p.lastTransaction || null,
-                  people: Array.isArray(p.people) ? p.people.map(x => ({ person: x.person_name || x.person || x.name || '', hours: x.hours || x.h || 0 })) : []
-                }))
-                setProjectSummaries(mapped.map(p => ({ ...p, total_hours: p.hours || 0 })))
-                setParsedData(mapped.map(p => ({ project_name: p.project_name, project_id: p.project_id })))
-                console.log('Parsed summary JSON (background):', maybeObj.projects)
-              } else if (Array.isArray(maybeObj)) {
-                data = maybeObj
-              } else if (Array.isArray(maybeObj.rows)) {
-                data = maybeObj.rows
-              } else if (Array.isArray(maybeObj.data)) {
-                data = maybeObj.data
-              } else {
-                // fallback: treat the object as a single-row array
-                data = [maybeObj]
-              }
-            } else {
-              try { data = parseCSV(text) } catch (e2) { data = null }
-            }
-          }
-
-          if (Array.isArray(data)) {
-            const normalized = normalizeParsedRows(data)
-            setParsedData(normalized)
-            setProjectSummaries(computeProjectSummaries(normalized))
-            console.log('Parsed data (background):', normalized)
-          }
-
-          if (!uploadSuccess) {
-            setLoadingMessage('Done')
-            setLoadingProgress(100)
-          }
-        } catch (err) {
-          console.error('Background processing error', err)
-          if (!uploadSuccess) {
-            setLoadingMessage('Background processing failed')
-            setLoadingProgress(null)
-            setTimeout(() => setLoading(false), 1500)
-          }
+      // Update dashboard with inferred project from filename
+      try {
+        const inferred = inferProjectFromFilename(f.name)
+        if (inferred) {
+          const optimistic = [{ project_name: inferred }]
+          setParsedData(optimistic)
+          setProjectSummaries(computeProjectSummaries(optimistic))
         }
-      })()
+      } catch (e) { /* ignore */ }
 
+      setTimeout(() => setLoading(false), 800)
     } catch (err) {
       console.error('Upload error', err)
       setParsedData(null)
-      setLoadingMessage('Upload failed')
+      setUploadTableData(null)
+      setLoadingMessage('Upload failed: ' + err.message)
       setLoadingProgress(null)
       setTimeout(() => setLoading(false), 2500)
     }
@@ -1922,47 +1941,84 @@ export default function Dsai(){
 
           {/* Upload tab content */}
           {activeTab === 'upload' && (
-            <div style={{padding:12}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <input id="reportUpload" type="file" accept=".csv,.json,.ndjson,.xlsb" ref={uploadRef} onChange={handleFileUpload} style={{display:'none'}} />
-                <button id="btnUploadReport" onClick={onUploadClick} style={{padding:'8px 12px',borderRadius:8,background:'#fff',border:'1px solid #e6e6ef',cursor:'pointer',fontWeight:800}}>Upload report</button>
+            <div style={{padding:'16px 12px'}}>
+              {/* Upload controls */}
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16,flexWrap:'wrap'}}>
+                <input id="reportUpload" type="file" accept=".xlsb" ref={uploadRef} onChange={handleFileUpload} style={{display:'none'}} />
+                <button id="btnUploadReport" onClick={onUploadClick} style={{padding:'8px 14px',borderRadius:8,background:'#2563eb',color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>Upload report</button>
+                {uploadTableData && (
+                  <button
+                    onClick={handleSaveReport}
+                    style={{padding:'8px 14px',borderRadius:8,background: savedReport ? '#16a34a' : '#0f172a',color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,transition:'background 0.2s'}}
+                  >
+                    {savedReport ? '✓ Saved' : 'Save'}
+                  </button>
+                )}
+                {saveMessage && (
+                  <span style={{fontSize:12,color: saveMessage.startsWith('Save failed') ? '#dc2626' : '#16a34a',fontWeight:600}}>{saveMessage}</span>
+                )}
                 <div style={{fontSize:12,color:'#6b7280'}}>Accepted: .xlsb only</div>
+                {uploadTableData && (
+                  <div style={{marginLeft:'auto',fontSize:12,color:'#16a34a',fontWeight:600}}>
+                    ✓ {uploadTableData.fileName} &nbsp;·&nbsp; {uploadTableData.rows.length.toLocaleString()} rows &nbsp;·&nbsp; sheet: {uploadTableData.sheetName}
+                  </div>
+                )}
               </div>
 
-              {lastUpload && (
-                <div style={{marginTop:12,padding:12,background:'#fff4',borderRadius:8,border:'1px dashed #e3e6ef'}}>
-                  <div style={{fontSize:12,fontWeight:700}}>Last upload</div>
-                  <div style={{fontSize:12,marginTop:6}}>jobId: {lastUpload.jobId || '(none)'}</div>
-                  <div style={{fontSize:12}}>savedOriginal: {lastUpload.savedOriginal || '(unknown)'}</div>
-                  <pre style={{whiteSpace:'pre-wrap',fontSize:11,marginTop:6}}>{lastUpload.raw}</pre>
+              {/* Data table */}
+              {uploadTableData && uploadTableData.rows.length > 0 && (
+                <div style={{borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden',background:'#fff'}}>
+                  <div style={{overflowX:'auto',maxHeight:480}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                      <thead>
+                        <tr style={{background:'#f1f5f9',position:'sticky',top:0,zIndex:1}}>
+                          {uploadTableData.columns.map(col => (
+                            <th key={col.key} title={col.raw} style={{
+                              padding:'8px 10px',textAlign:'left',fontWeight:700,
+                              color:'#374151',whiteSpace:'nowrap',borderBottom:'2px solid #e2e8f0',
+                              borderRight:'1px solid #e2e8f0'
+                            }}>
+                              {col.label}
+                              {col.label !== col.raw && (
+                                <div style={{fontSize:10,fontWeight:400,color:'#9ca3af',marginTop:1}}>{col.raw}</div>
+                              )}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uploadTableData.rows.slice(0, 200).map((row, ri) => (
+                          <tr key={ri} style={{borderBottom:'1px solid #f1f5f9',background: ri % 2 === 0 ? '#fff' : '#f8fafc'}}>
+                            {uploadTableData.columns.map(col => (
+                              <td key={col.key} style={{
+                                padding:'6px 10px',color:'#1e293b',whiteSpace:'nowrap',
+                                maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',
+                                borderRight:'1px solid #f1f5f9'
+                              }} title={row[col.key]}>
+                                {row[col.key]}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {uploadTableData.rows.length > 200 && (
+                    <div style={{padding:'6px 12px',fontSize:11,color:'#6b7280',borderTop:'1px solid #e2e8f0',background:'#f8fafc'}}>
+                      Showing first 200 of {uploadTableData.rows.length.toLocaleString()} rows
+                    </div>
+                  )}
                 </div>
               )}
 
-              {parsedData && (
-                <div style={{marginTop:12,padding:12,background:'#fff',borderRadius:8,border:'1px solid #e6e6ef'}}>
-                  <div style={{fontSize:12,fontWeight:700}}>Parsed data (preview)</div>
-                  <pre style={{maxHeight:240,overflow:'auto',fontSize:12,whiteSpace:'pre-wrap',marginTop:8}}>{JSON.stringify(parsedData.slice(0,20), null, 2)}</pre>
+              {!uploadTableData && (
+                <div style={{padding:'40px 0',textAlign:'center',color:'#9ca3af',fontSize:13}}>
+                  No report loaded. Upload an .xlsb file to view its contents.
                 </div>
               )}
             </div>
           )}
 
-          {/* Debug panel: show last upload and parsed data so we can debug missing rows */}
-          {lastUpload && (
-            <div style={{padding:12,background:'#fff4',marginTop:12,borderRadius:8,border:'1px dashed #e6e6ef'}}>
-              <div style={{fontSize:12,color:'#374151',fontWeight:700}}>Last upload</div>
-              <div style={{fontSize:12,color:'#6b7280',marginTop:6}}>jobId: {lastUpload.jobId || '(none)'}</div>
-              <div style={{fontSize:12,color:'#6b7280'}}>savedOriginal: {lastUpload.savedOriginal || '(unknown)'}</div>
-              <div style={{fontSize:12,color:'#6b7280',marginTop:6}}>raw response: <pre style={{whiteSpace:'pre-wrap',fontSize:11,color:'#374151'}}>{lastUpload.raw}</pre></div>
-            </div>
-          )}
-
-          {parsedData && (
-            <div style={{padding:12,background:'#fff',marginTop:12,borderRadius:8,border:'1px solid #e6e6ef'}}>
-              <div style={{fontSize:12,fontWeight:700,color:'#374151'}}>Parsed data (preview)</div>
-              <pre style={{maxHeight:240,overflow:'auto',fontSize:12,whiteSpace:'pre-wrap',marginTop:8}}>{JSON.stringify(parsedData.slice(0,20), null, 2)}</pre>
-            </div>
-          )}
         </div>
       </div>
     </main>
